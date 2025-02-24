@@ -14,13 +14,8 @@ class DataSet:
         current_dir = Path.cwd()
         self.output_dir = current_dir.parent  
 
-class Cluster:
-    def __init__(self, words, id):
-        self.words = words if words else []
-        self.id = id
-
 class WordUnit:
-    def __init__(self, filename, index, true_word, boundaries, discrete=True):
+    def __init__(self, id, filename, index, true_word, boundaries, discrete=True):
         self.filename = filename
         self.index = index
         self.discrete = discrete
@@ -31,6 +26,7 @@ class WordUnit:
         self.original_encoding = None
         self.clean_encoding = []
         self.flags = None
+        self.id = id
 
     def get_frame_num(self, timestamp, sample_rate, frame_size_ms):
         hop = frame_size_ms/1000 * sample_rate
@@ -41,6 +37,9 @@ class WordUnit:
         start_frame = self.get_frame_num(boundaries[0], 16000, 20)
         end_frame = self.get_frame_num(boundaries[1], 16000, 20)
         return [start_frame, end_frame]
+    
+    def change_id(self, id):
+        self.id = id
     
     def add_encoding_by_flags(self, encoding, flags, discrete):
         if not discrete:
@@ -55,14 +54,31 @@ class WordUnit:
         self.original_encoding = cut_encoding
         self.flags = cut_flags
 
-        for i in range(min(len(self.original_encoding), len(self.flags))):
-            if cut_flags[i]:
-                if not discrete:
-                    self.clean_encoding.append(self.original_encoding[i,:].unsqueeze(0))
-                else:
-                    self.clean_encoding.append(self.original_encoding[i])
-        if not discrete and self.clean_encoding:
-            self.clean_encoding = torch.cat(self.clean_encoding, dim=0)
+        if sum(cut_flags) < len(cut_flags)/2:
+            self.clean_encoding = cut_encoding
+            
+        else:
+            for i in range(min(len(self.original_encoding), len(self.flags))):
+                if cut_flags[i]:
+                    if not discrete:
+                        self.clean_encoding.append(self.original_encoding[i,:].unsqueeze(0))
+                    else:
+                        self.clean_encoding.append(self.original_encoding[i])
 
+        if not discrete and isinstance(self.clean_encoding, list):
+            self.clean_encoding = torch.cat(self.clean_encoding, dim=0)
+            
     def update_encoding(self, encoding):
         self.clean_encoding = encoding
+    
+    def copy(self):
+        word = WordUnit(
+            id=self.id,
+            filename=self.filename,
+            index=self.index, 
+            true_word=self.true_word, 
+            boundaries=self.word_boundaries,
+            discrete=self.discrete
+        )
+        word.update_encoding(self.clean_encoding)
+        return word

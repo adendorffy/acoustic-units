@@ -1,5 +1,5 @@
 from pathlib import Path
-from features import DataSet, WordUnit
+from utils.features import DataSet, WordUnit
 import random
 from torchaudio.functional import resample
 import torch
@@ -10,6 +10,8 @@ import struct
 import numpy as np
 import torch.nn.functional as F
 import pandas as pd
+from joblib import Parallel, delayed
+
 
 INT16_MAX = (2**15) - 1
 hop_length = 320
@@ -45,7 +47,7 @@ def mark_sil(vad, wav):
 
 
 
-def get_hubert_units(dataset, sampled_paths):
+def get_hubert_units(dataset, sampled_paths, save=False):
     words = []
 
     hubert = torch.hub.load(
@@ -56,7 +58,8 @@ def get_hubert_units(dataset, sampled_paths):
     vad = Vad()
 
     align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
-
+    
+    word_id = 0
     for wav_path in tqdm(sampled_paths, desc="Getting HuBERT units"):
         
         wav_df = align_df[align_df['filename'] == wav_path.stem]
@@ -72,29 +75,37 @@ def get_hubert_units(dataset, sampled_paths):
         
         units = units.numpy()
 
-        for w in range(1, max(wav_df['word_id'])):
+        for w in range(max(wav_df['word_id'])):
             word_df = wav_df[wav_df['word_id'] == w]
+            
+            if not isinstance(word_df['text'].iloc[0], str):
+                true_word = '_'
+            else:
+                true_word = word_df['text'].iloc[0]
 
             new_word = WordUnit(
+                id=word_id,
                 filename=wav_path.stem, 
                 index=w, 
-                true_word=word_df['text'].iloc[0],
+                true_word=true_word,
                 boundaries= [word_df['word_start'].iloc[0], word_df['word_end'].iloc[0]], 
                 discrete=True
             )
             
             new_word.add_encoding_by_flags(
                 units, flags, discrete=True
-            )
+            )   
             
+            word_id += 1
             words.append(new_word)
 
-            out_path = dataset.feat_dir / "hubert_units" / wav_path.relative_to(dataset.in_dir).with_suffix("")
+            if save:
+                out_path = dataset.feat_dir / "hubert_units" / wav_path.relative_to(dataset.in_dir).with_suffix("")
 
-            out_path.parent.mkdir(parents=True, exist_ok=True)
+                out_path.parent.mkdir(parents=True, exist_ok=True)
 
-            out_path = str(out_path) + f"_{w}.npy"
-            np.save(out_path, new_word.clean_encoding)
+                out_path = str(out_path) + f"_{w}.npy"
+                np.save(out_path, new_word.clean_encoding)
 
     return words
 
@@ -111,6 +122,8 @@ def get_dusted_units(dataset, sampled_paths, layer=7, gamma=0.2):
 
     vad = Vad()
     align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
+    
+    word_id = 0
 
     for wav_path in tqdm(sampled_paths, desc="Getting DUSTED units"):
         
@@ -126,17 +139,22 @@ def get_dusted_units(dataset, sampled_paths, layer=7, gamma=0.2):
         for w in range(max(wav_df['word_id'])):
             word_df = wav_df[wav_df['word_id'] == w]
 
+            if not isinstance(word_df['text'].iloc[0], str):
+                true_word = '_'
+            else:
+                true_word = word_df['text'].iloc[0]
+
             new_word = WordUnit(
+                id=word_id,
                 filename=wav_path.stem, 
                 index=w, 
-                true_word=word_df['text'].iloc[0],
+                true_word=true_word,
                 boundaries= [word_df['word_start'].iloc[0], word_df['word_end'].iloc[0]], 
                 discrete=True
             )
+            word_id += 1
             
-            new_word.add_encoding_by_flags(
-                encoding, flags, discrete=False
-            )
+            new_word.add_encoding_by_flags(encoding, flags, False)
 
             if new_word.clean_encoding != []: 
                 codes, _ = segment(new_word.clean_encoding, kmeans.cluster_centers_, gamma)
@@ -150,21 +168,25 @@ def get_dusted_units(dataset, sampled_paths, layer=7, gamma=0.2):
 
                 out_path = str(out_path) + f"_{w}.npy"
                 np.save(out_path, new_word.clean_encoding)
+            else:
+                print(new_word.true_word)
 
     return words
 
+if __name__ == "__main__":
 
-current_dir = Path.cwd()
+    current_dir = Path.cwd()
 
-dataset = DataSet(
-    name="librispeech-dev-clean",
-    in_dir=Path("data/dev-clean"),
-    align_dir=Path("data/alignments/dev-clean"),
-    feat_dir=Path("features"), 
-    audio_ext=".flac" 
-)
+    dataset = DataSet(
+        name="librispeech-dev-clean",
+        in_dir=Path("data/dev-clean"),
+        align_dir=Path("data/alignments/dev-clean"),
+        feat_dir=Path("features"), 
+        audio_ext=".flac" 
+    )
 
-sampled_paths = sample_files(dataset,-1)
-
-hubert_words = get_hubert_units(dataset, sampled_paths)
-dusted_words = get_dusted_units(dataset, sampled_paths)
+    sampled_paths = sample_files(dataset,-1)
+    
+    hubert_words, dusted_words = Parallel(n_jobs=2)(
+        delayed(func)(dataset, sampled_paths) for func in [get_hubert_units, get_dusted_units]
+    )
