@@ -1,5 +1,5 @@
 from pathlib import Path
-from features import DataSet, WordUnit
+from features import DataSet
 import textgrids
 import  pandas as pd
 
