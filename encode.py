@@ -190,6 +190,6 @@ if __name__ == "__main__":
     hubert_words, dusted_words = Parallel(n_jobs=8)(
     [
         delayed(get_units)(dataset, sampled_paths, 0.2, 7, True),  
-        delayed(get_units)(dataset, sampled_paths, 0.2, 7, True)   
+        delayed(get_units)(dataset, sampled_paths, 0.2, 7, False)   
     ]
 )

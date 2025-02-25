@@ -5,75 +5,98 @@ import numpy as np
 import pandas as pd
 import editdistance
 from tqdm import tqdm
-import concurrent.futures
  
 def load_units(dataset, sampled_paths, gamma):
     align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
-    word_id = 0
     
-    if gamma == 0.0:
-        hubert_words = []
-        for path in tqdm(sampled_paths, desc="Loading Units"):
+    hubert_words = []
+    dusted_words = []
+    word_id_h = 0
+    word_id_d = 0
+
+    for path in tqdm(sampled_paths, desc="Loading Units"):
+    
+        hubert_path = dataset.feat_dir /"hubert_units"
+        hubert_paths = list(hubert_path.rglob(f"**/{path.stem}_*.npy"))
         
-            hubert_path = dataset.feat_dir /"hubert_units"
-            hubert_paths = list(hubert_path.rglob(f"**/{path.stem}_*.npy"))
+
+        dusted_path = dataset.feat_dir /"dusted_units"/str(gamma)
+        dusted_paths = list(dusted_path.rglob(f"**/{path.stem}_*.npy"))
             
-            for w, h_path in enumerate(hubert_paths):
-                
-                parts = h_path.stem.split("_")
-                h_df = align_df[align_df["filename"]==parts[0]]
-                h_df = h_df[h_df["word_id"]==int(parts[1])]
+        for h_path, d_path in zip(hubert_paths, dusted_paths):
+            
+            parts = h_path.stem.split("_")
 
-                units = np.load(h_path)
+            h_df = align_df[align_df["filename"]==parts[0]]
+            h_df = h_df[h_df["word_id"]==int(parts[1])]
 
-                if not isinstance(h_df['text'].iloc[0], str):
-                    true_word = '_'
-                else:
-                    true_word = h_df['text'].iloc[0]
+            units = np.load(h_path)
 
-                word = WordUnit(
-                    id=word_id,
-                    filename=parts[0], 
-                    index=parts[1],
-                    true_word=true_word,
-                    boundaries=[h_df["word_start"].iloc[0], h_df["word_end"].iloc[0]],
-                )
+            if not isinstance(h_df['text'].iloc[0], str):
+                true_word = '_'
+            else:
+                true_word = h_df['text'].iloc[0]
 
-                word.update_encoding(units)
-                word_id += 1
-                hubert_words.append(word)
-        return hubert_words
-    else:
-        dusted_words = []
-        for path in tqdm(sampled_paths, desc="Loading Units"):
-        
-            dusted_path = dataset.feat_dir /"dusted_units"/str(gamma)
-            dusted_paths = list(dusted_path.rglob(f"**/{path.stem}_*.npy"))
+            hub_word = WordUnit(
+                id=word_id_h,
+                filename=parts[0], 
+                index=parts[1],
+                true_word=true_word,
+                boundaries=[h_df["word_start"].iloc[0], h_df["word_end"].iloc[0]],
+            )
 
-            for w, d_path in enumerate(dusted_paths):
-                parts = d_path.stem.split("_")
-                d_df = align_df[align_df["filename"]==parts[0]]
-                d_df = d_df[d_df["word_id"]==int(parts[1])]
-                units = np.load(d_path)
+            hub_word.update_encoding(units)
+            hubert_words.append(hub_word)
 
-                if not isinstance(d_df['text'].iloc[0], str):
-                    true_word = '_'
-                else:
-                    true_word = d_df['text'].iloc[0]
+            word_id_h +=1 
 
-                word = WordUnit(
-                    id=w,
-                    filename=parts[0], 
-                    index=parts[1],
-                    true_word=true_word,
-                    boundaries=[d_df["word_start"].iloc[0], d_df["word_end"].iloc[0]],
-                )
+            d_df = align_df[align_df["filename"]==parts[0]]
+            d_df = d_df[d_df["word_id"]==int(parts[1])]
+            units = np.load(d_path)
 
-                word.update_encoding(units)
-                word_id += 1
-                dusted_words.append(word)
+            if not isinstance(d_df['text'].iloc[0], str):
+                true_word = '_'
+            else:
+                true_word = d_df['text'].iloc[0]
 
-        return dusted_words
+            dust_word = WordUnit(
+                id=word_id_d,
+                filename=parts[0], 
+                index=parts[1],
+                true_word=true_word,
+                boundaries=[d_df["word_start"].iloc[0], d_df["word_end"].iloc[0]],
+            )
+
+            dust_word.update_encoding(units)
+            dusted_words.append(dust_word)
+            word_id_d += 1
+
+    return hubert_words, dusted_words
+
+def calculate_distance(words, save=None):
+    num_words = len(words)
+    dist_mat = np.zeros((num_words, num_words))
+    for i in tqdm(range(num_words), desc="Calculating Distances"):
+        encoding_i = words[i].clean_encoding
+        for j in range(i+1, num_words):
+            encoding_j = words[j].clean_encoding
+            length = max(len(encoding_i), len(encoding_j))
+            
+            if length > 0:
+                dist = editdistance.eval(encoding_i, encoding_j) / length
+            else:
+                dist = 0 
+            
+            dist_mat[i, j] = dist
+            dist_mat[j, i] = dist
+
+    print(dist_mat[0:5, 0:5])
+    if save: 
+        save.mkdir(parents=True, exist_ok=True)
+        out_file = save / "dist_mat.npy"
+        np.save(out_file, dist_mat)
+    return dist_mat
+
 
 if __name__ == "__main__":
 
@@ -89,12 +112,7 @@ if __name__ == "__main__":
 
     sampled_paths = sample_files(dataset, 4)
 
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        future_hubert = executor.submit(load_units, dataset, sampled_paths, 0.0)
-        future_dusted = executor.submit(load_units, dataset, sampled_paths, 0.2)
-
-        hubert_words = future_hubert.result()
-        dusted_words = future_dusted.result()
+    hubert_words, dusted_words = load_units(dataset, sampled_paths, 0.2)
 
     num_words = len(hubert_words)
     true_words = []
@@ -102,7 +120,6 @@ if __name__ == "__main__":
     avg_words = []
     for w in tqdm(range(num_words), desc="Calculating Avg words"):
         new_word = hubert_words[w].copy()
-        print(new_word.id)
         hubert_units = hubert_words[w].clean_encoding
         dusted_units = dusted_words[w].clean_encoding
 
@@ -115,20 +132,7 @@ if __name__ == "__main__":
         else:
             true_words.append(new_word.true_word)
 
-    print(true_words)
+    out_dir = Path("output/avg_words/")
+    dist_mat_dusted = calculate_distance(dusted_words, out_dir)
 
-
-    # dist_mat = np.zeros((num_words, num_words))
-    # for i in tqdm(range(num_words), desc="Calculating Distances"):
-    #     for j in range(i+1, num_words):
-    #         # dist_hubert = editdistance.eval(hubert_words[i].clean_encoding, hubert_words[j].clean_encoding)
-    #         # dist_dusted = editdistance.eval(dusted_words[i].clean_encoding, dusted_words[j].clean_encoding)
-
-    #         dist_mat[i, j] = editdistance.eval(avg_words[i].clean_encoding, avg_words[j].clean_encoding)
-    #         dist_mat[j, i] = dist_mat[i,j]
-
-    # print(dist_mat[0:5, 0:5])
-    # out_dir = Path("output/avg_words")
-    # out_dir.mkdir(parents=True, exist_ok=True)
-    # out_file = out_dir / "dist_mat.npy"
-    # np.save(out_file, dist_mat)
+   
