@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
 
-def ned(word_clusters):
+def ned(word_clusters, print_pure=False):
 
     distances = []
     for i, clust in enumerate(word_clusters):
@@ -19,11 +19,12 @@ def ned(word_clusters):
                 clust_dist.append(dist)
                 distances.append(dist)
 
-            if any(dist > 0 for dist in clust_dist):
+            if any(dist > 0 for dist in clust_dist) or print_pure:
                 print(f"Cluster {i}: {statistics.mean(clust_dist)}")
-                for p, q in itertools.combinations(clust, 2):
-                    if editdistance.eval(p.true_word, q.true_word) > 0:
-                        print((p.true_word, q.true_word))
+                for p, q in itertools.combinations(clust, 2):   
+                    if editdistance.eval(p.true_word, q.true_word) > 0 or print_pure:
+                        print(p.id, q.id, (p.true_word, q.true_word))
+                        print(len(clust))
 
                 print()
 
