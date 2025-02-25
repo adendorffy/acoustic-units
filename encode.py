@@ -11,6 +11,7 @@ import numpy as np
 import torch.nn.functional as F
 import pandas as pd
 from joblib import Parallel, delayed
+import argparse
 
 
 INT16_MAX = (2**15) - 1
@@ -78,15 +79,15 @@ def get_units(dataset, sampled_paths, gamma=0.2, layer=7,  save=False):
         flags = mark_sil(vad, wav)
         wav = wav.unsqueeze(0)
 
-        hub_words, word_id_h = get_hubert_units(wav, hubert, wav_path, flags, wav_df, word_id_h, save)
-        dust_words, word_id_d = get_dusted_units(wav, dusted_hubert, encode, segment, kmeans, wav_path, flags, wav_df, word_id_d, gamma, layer, save)
+        hub_words, word_id_h = get_hubert_units(dataset, wav, hubert, wav_path, flags, wav_df, word_id_h, save)
+        dust_words, word_id_d = get_dusted_units(dataset, wav, dusted_hubert, encode, segment, kmeans, wav_path, flags, wav_df, word_id_d, gamma, layer, save)
 
         hubert_words.extend(hub_words)
         dusted_words.extend(dust_words)
 
     return hubert_words, dusted_words
 
-def get_hubert_units(wav, hubert, wav_path, flags, wav_df, word_id, save=False):
+def get_hubert_units(dataset, wav, hubert, wav_path, flags, wav_df, word_id, save=False):
     words = []
 
     with torch.inference_mode():
@@ -129,7 +130,7 @@ def get_hubert_units(wav, hubert, wav_path, flags, wav_df, word_id, save=False):
 
     return words, word_id
 
-def get_dusted_units(wav, hubert, encode, segment, kmeans, wav_path, flags, wav_df, word_id, gamma=0.2, layer=7, save=False):
+def get_dusted_units(dataset, wav, hubert, encode, segment, kmeans, wav_path, flags, wav_df, word_id, gamma=0.2, layer=7, save=False):
     words = []
 
     encoding = encode(hubert, wav, layer)
@@ -173,23 +174,40 @@ def get_dusted_units(wav, hubert, encode, segment, kmeans, wav_path, flags, wav_
 
     return words, word_id
 
-if __name__ == "__main__":
 
-    current_dir = Path.cwd()
+def main():
+    parser = argparse.ArgumentParser(description="Process dataset configurations for sampling and feature extraction.")
+
+    parser.add_argument("name", type=str, default="librispeech-dev-clean", help="Name of the dataset.")
+    parser.add_argument("in_dir", type=Path, default=Path("data/dev-clean"), help="Path to the input dataset directory.")
+    parser.add_argument("align_dir", type=Path, default=Path("data/alignments/dev-clean"), help="Path to the alignments directory.")
+    parser.add_argument("feat_dir", type=Path, default=Path("features"), help="Path to store extracted features.")
+    parser.add_argument("--audio_ext", type=str, default=".flac", help="File extension for audio files.")
+    
+    parser.add_argument("sample_size", type=int, default=-1, help="Number of samples to take from the dataset (-1 for all).")
+
+    parser.add_argument("--n_jobs", type=int, default=8, help="Number of parallel jobs to use.")
+    parser.add_argument("--gamma", type=float, default=0.2, help="Parameter for get_units function.")
+    parser.add_argument("--layer", type=int, default=7, help="Parameter for get_units function.")
+
+    args = parser.parse_args()
 
     dataset = DataSet(
-        name="librispeech-dev-clean",
-        in_dir=Path("data/dev-clean"),
-        align_dir=Path("data/alignments/dev-clean"),
-        feat_dir=Path("features"), 
-        audio_ext=".flac" 
+        name=args.name,
+        in_dir=args.in_dir,
+        align_dir=args.align_dir,
+        feat_dir=args.feat_dir,
+        audio_ext=args.audio_ext
     )
 
-    sampled_paths = sample_files(dataset,-1)
-    
-    hubert_words, dusted_words = Parallel(n_jobs=8)(
-    [
-        delayed(get_units)(dataset, sampled_paths, 0.2, 7, True),  
-        delayed(get_units)(dataset, sampled_paths, 0.2, 7, False)   
-    ]
-)
+    sampled_paths = sample_files(dataset, args.num_samples)
+
+    hubert_words, dusted_words = Parallel(n_jobs=args.n_jobs)(
+        [
+            delayed(get_units)(dataset, sampled_paths, args.gamma, args.layer, True),  
+            delayed(get_units)(dataset, sampled_paths, args.gamma, args.layer, False)   
+        ]
+    )
+
+if __name__ == "__main__":
+    main()
