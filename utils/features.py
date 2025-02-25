@@ -54,19 +54,17 @@ class WordUnit:
         self.original_encoding = cut_encoding
         self.flags = cut_flags
 
-        if sum(cut_flags) < len(cut_flags)/2:
-            self.clean_encoding = cut_encoding
-            
-        else:
-            for i in range(min(len(self.original_encoding), len(self.flags))):
-                if cut_flags[i]:
-                    if not discrete:
-                        self.clean_encoding.append(self.original_encoding[i,:].unsqueeze(0))
-                    else:
-                        self.clean_encoding.append(self.original_encoding[i])
+        
+        for i in range(min(len(self.original_encoding), len(self.flags))):
+            if cut_flags[i]:
+                if not discrete:
+                    self.clean_encoding.append(self.original_encoding[i,:].unsqueeze(0))
+                else:
+                    self.clean_encoding.append(self.original_encoding[i])
 
         if not discrete and isinstance(self.clean_encoding, list):
-            self.clean_encoding = torch.cat(self.clean_encoding, dim=0)
+            if self.clean_encoding != []:
+                self.clean_encoding = torch.cat(self.clean_encoding, dim=0)
             
     def update_encoding(self, encoding):
         self.clean_encoding = encoding
