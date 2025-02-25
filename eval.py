@@ -6,6 +6,7 @@ import seaborn as sns
 import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
+from scipy.cluster.hierarchy import dendrogram
 
 def ned(word_clusters, print_pure=False):
 
@@ -80,3 +81,14 @@ def clusters_purity(just_words_clusters):
         visited = visited.union(clust_set)
        
     return count/total, total
+
+def dendogram(dist_mat, true_words):
+    condensed_dist_mat = squareform(dist_mat)
+    linked = linkage(condensed_dist_mat, method='average')
+
+    plt.figure(figsize=(10, 6))
+    dendrogram(linked, labels=true_words, leaf_font_size=6)
+    plt.title('Hierarchical Clustering Dendrogram')
+    plt.xlabel('Sample')
+    plt.ylabel('Distance')
+    plt.show()
