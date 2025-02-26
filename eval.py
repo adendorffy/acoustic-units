@@ -13,7 +13,7 @@ from tqdm import tqdm
 def ned(word_clusters, print_pure=False, print_inpure=True):
 
     distances = []
-    for i, clust in tqdm(enumerate(word_clusters), desc="Calculating NED"):
+    for i, clust in tqdm(enumerate(word_clusters), total=len(word_clusters), desc="Calculating NED"):
         if len(clust)> 1:
             clust_dist = []
            

@@ -71,7 +71,7 @@ def get_word_clusters(int_clusters, words):
 def get_cluster_centroids(word_clusters):
     centroids = []
 
-    for i, clust in tqdm(enumerate(word_clusters), desc="Calculating Cluster Centroids"):
+    for i, clust in tqdm(enumerate(word_clusters), total=len(word_clusters), desc="Calculating Cluster Centroids"):
         units_stack = [word.clean_encoding for word in clust]
         max_len = max([len(units) for units in units_stack])
         padded_units_stack = [
