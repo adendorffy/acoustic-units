@@ -88,7 +88,7 @@ def get_cluster_centroids(word_clusters):
 def get_distance_to_centroids(word_clusters, centroids):
     words = []
     
-    for clust in word_clusters:
+    for clust in tqdm(word_clusters, desc="Get Distances to Centroids"):
         for word in clust:
             distances_to_centroids = [
                 editdistance.eval(word.clean_encoding, centroids[i].clean_encoding) 
