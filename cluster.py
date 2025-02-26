@@ -1,6 +1,7 @@
 import numpy as np
 import editdistance
 from eval import calculate_duplicate_clusters, ned
+from tqdm import tqdm
 
 def cluster(dist_mat, dist_threshold):
     num_nodes = dist_mat.shape[0]
@@ -31,17 +32,32 @@ def cluster(dist_mat, dist_threshold):
 
         return cluster
 
-    for node in range(num_nodes):
+    for node in tqdm(range(num_nodes), desc="Clustering"):
         if node not in visited:
             new_cluster = bfs(node)
             clusters.append(new_cluster)
     
     return clusters
 
+def get_loaded_clusters(words):
+
+    clusters_dict = {}
+    for w in words:
+        if w.cluster_id in clusters_dict:
+            clusters_dict[w.cluster_id].extend([w])
+        else:
+            clusters_dict[w.cluster_id] = [w]
+    
+    clusters = []
+    for id in clusters_dict:
+        clusters.append(clusters_dict[id])
+
+    return clusters
+
 def get_word_clusters(int_clusters, words):
 
     word_clusters = []
-    for i, clust in enumerate(int_clusters):
+    for i, clust in tqdm(enumerate(int_clusters), desc="Getting Word Clusters"):
         words_ = []
         for k in range(len(clust)):
             word_list = [w for w in words if w.id == clust[k]]
@@ -55,7 +71,7 @@ def get_word_clusters(int_clusters, words):
 def get_cluster_centroids(word_clusters):
     centroids = []
 
-    for i, clust in enumerate(word_clusters):
+    for i, clust in tqdm(enumerate(word_clusters), desc="Calculating Cluster Centroids"):
         units_stack = [word.clean_encoding for word in clust]
         max_len = max([len(units) for units in units_stack])
         padded_units_stack = [
@@ -65,7 +81,6 @@ def get_cluster_centroids(word_clusters):
         centroid_encoding = np.mean(padded_units_stack, axis=0)
         dist = [editdistance.eval(centroid_encoding, clust[j].clean_encoding) for j in range(len(clust))]
         closest_word = clust[np.argmin(dist)]
-        # print(f"Cluster {i} centroid: {closest_word.true_word}")
         centroids.append(closest_word)
     
     return centroids

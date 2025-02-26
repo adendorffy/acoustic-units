@@ -1,9 +1,9 @@
 from pathlib import Path
-from features import DataSet
 import textgrids
 import  pandas as pd
 import argparse
 from tqdm import tqdm
+import pandas as pd
 
 def extract_alignments(dataset):
     in_paths = list(dataset.align_dir.rglob("**/*.TextGrid"))

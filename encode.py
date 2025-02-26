@@ -46,29 +46,28 @@ def mark_sil(vad, wav):
         flags.append(flag)
     return flags
 
-def get_units(dataset, sampled_paths, gamma=0.2, layer=7,  save=False):
+def get_units(dataset, model, sampled_paths, gamma=0.2, layer=7,  save=False):
 
-    hubert_words = []
-    dusted_words = []
+    words = []
 
-    hubert = torch.hub.load(
-        "bshall/hubert:main", "hubert_discrete", trust_repo=True,
-    )
-
-    kmeans, segment = torch.hub.load(
+    if model == "dusted":
+        kmeans, segment = torch.hub.load(
         "bshall/dusted:main", "kmeans", language="english", trust_repo=True
-    )
+        )
 
-    dusted_hubert, encode = torch.hub.load(
-        "bshall/dusted:main", "hubert", language="english", trust_repo=True
-    )
+        hubert, encode = torch.hub.load(
+            "bshall/dusted:main", "hubert", language="english", trust_repo=True
+        )
+    else:
+        hubert = torch.hub.load(
+            "bshall/hubert:main", "hubert_discrete", trust_repo=True,
+        )
 
     vad = Vad()
 
     align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
     
-    word_id_h = 0
-    word_id_d = 0
+    word_id = 0
     for wav_path in tqdm(sampled_paths, desc="Getting units"):
         
         wav_df = align_df[align_df['filename'] == wav_path.stem]
@@ -78,14 +77,15 @@ def get_units(dataset, sampled_paths, gamma=0.2, layer=7,  save=False):
         
         flags = mark_sil(vad, wav)
         wav = wav.unsqueeze(0)
+        
+        if model == "dusted":
+            word, word_id = get_dusted_units(dataset, wav, hubert, encode, segment, kmeans, wav_path, flags, wav_df, word_id, gamma, layer, save)
+        else:
+            word, word_id = get_hubert_units(dataset, wav, hubert, wav_path, flags, wav_df, word_id, save)
 
-        hub_words, word_id_h = get_hubert_units(dataset, wav, hubert, wav_path, flags, wav_df, word_id_h, save)
-        dust_words, word_id_d = get_dusted_units(dataset, wav, dusted_hubert, encode, segment, kmeans, wav_path, flags, wav_df, word_id_d, gamma, layer, save)
+        words.extend(word)
 
-        hubert_words.extend(hub_words)
-        dusted_words.extend(dust_words)
-
-    return hubert_words, dusted_words
+    return words
 
 def get_hubert_units(dataset, wav, hubert, wav_path, flags, wav_df, word_id, save=False):
     words = []

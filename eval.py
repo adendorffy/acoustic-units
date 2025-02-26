@@ -8,11 +8,12 @@ from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import dendrogram
 from collections import Counter
+from tqdm import tqdm
 
 def ned(word_clusters, print_pure=False, print_inpure=True):
 
     distances = []
-    for i, clust in enumerate(word_clusters):
+    for i, clust in tqdm(enumerate(word_clusters), desc="Calculating NED"):
         if len(clust)> 1:
             clust_dist = []
            
