@@ -57,7 +57,7 @@ def get_loaded_clusters(words):
 def get_word_clusters(int_clusters, words):
 
     word_clusters = []
-    for i, clust in tqdm(enumerate(int_clusters), desc="Getting Word Clusters"):
+    for i, clust in tqdm(enumerate(int_clusters), total=len(int_clusters), desc="Getting Word Clusters"):
         words_ = []
         for k in range(len(clust)):
             word_list = [w for w in words if w.id == clust[k]]
