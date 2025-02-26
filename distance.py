@@ -24,9 +24,10 @@ def calculate_distance(words, save=None, n_jobs=-1):
     
     index_pairs = [(i, j, words) for i in range(num_words) for j in range(i+1, num_words)]
 
-    results = Parallel(n_jobs=n_jobs, backend="multiprocessing")(
-        delayed(compute_distance)(args) for args in tqdm(index_pairs, desc="Calculating Distances")
-    )
+    with tqdm(total=len(index_pairs), desc="Calculating Distances") as pbar:
+        results = Parallel(n_jobs=n_jobs, backend="multiprocessing")(
+            delayed(lambda args: (pbar.update(1), compute_distance(args))[1])(args) for args in index_pairs
+        )
     for i, j, dist in results:
         dist_mat[i, j] = dist
         dist_mat[j, i] = dist

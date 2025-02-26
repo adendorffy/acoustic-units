@@ -127,7 +127,7 @@ def get_words_and_dist_mat(dataset, model, out_dir, sample_size, gamma=None):
     align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
 
     words = []
-    for index, row in tqdm(words_csv.iterrows(), total=len([words_csv.iterrows()]),desc=f"Getting {model} words"):
+    for index, row in tqdm(words_csv.iterrows(), total=len(words_csv),desc=f"Getting {model} words"):
         id = row['id']
         filename = row['filename']
         index = row['index']
