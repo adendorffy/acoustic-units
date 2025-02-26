@@ -136,8 +136,8 @@ def get_words_and_dist_mat(dataset, model, out_dir, sample_size, gamma=None):
         word_path = dataset.feat_dir / f"{model}_units" / filename_parts[0] / filename_parts[1] / f"{filename}_{index}.npy" 
         if gamma:
             word_path = dataset.feat_dir / f"{model}_units" / str(gamma) /filename_parts[0] / filename_parts[1] / f"{filename}_{index}.npy" 
-            
-        word = load_word(word_path, id, align_df, Path(dataset.output_dir / model / sample_size))
+
+        word = load_word(word_path, id, align_df, Path(dataset.output_dir / model / str(sample_size)))
         words.append(word)
     
     return words, dist_mat
@@ -165,7 +165,8 @@ def load_word(word_path, word_id, align_df, from_output=False):
         words_df = pd.read_csv(Path(from_output / "words.csv"))
         word_df = words_df[words_df['filename']==parts[0]]
         word_df = words_df[words_df['id']==int(parts[1])]
-        word.add_cluster_id(word_df["cluster_id"].iloc[0])
+        if "cluster_id" in word_df.columns:
+            word.add_cluster_id(word_df["cluster_id"].iloc[0])
 
     word.update_encoding(units)
     return word
