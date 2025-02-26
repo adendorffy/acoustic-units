@@ -1,6 +1,27 @@
 from pathlib import Path
 import numpy as np 
-import torch
+from collections import Counter
+import pandas as pd
+import ace_tools_open as tools
+
+def display_words(word_units):
+
+    num_words = len(word_units)
+    true_words = []
+
+    for w in range(num_words): 
+
+        if not isinstance(word_units[w].true_word, str):
+            true_words.append("_")
+        else:
+            true_words.append(word_units[w].true_word)
+            
+
+    counts = Counter(true_words)
+
+    word_counts_df = pd.DataFrame(counts.items(), columns=["Word", "Count"])
+    word_counts_df = word_counts_df.sort_values(by="Count", ascending=False)
+    tools.display_dataframe_to_user(name="Sorted Word Counts", dataframe=word_counts_df)
 
 class DataSet:
     def __init__(self, name, in_dir, align_dir, feat_dir, audio_ext):
@@ -27,6 +48,7 @@ class WordUnit:
         self.clean_encoding = []
         self.flags = None
         self.id = id
+        self.cluster_id = None
 
     def get_frame_num(self, timestamp, sample_rate, frame_size_ms):
         hop = frame_size_ms/1000 * sample_rate
@@ -38,8 +60,8 @@ class WordUnit:
         end_frame = self.get_frame_num(boundaries[1], 16000, 20)
         return [start_frame, end_frame]
     
-    def change_id(self, id):
-        self.id = id
+    def add_cluster_id(self, id):
+        self.cluster_id = id
     
     def add_encoding_by_flags(self, encoding, flags, discrete):
         if not discrete:

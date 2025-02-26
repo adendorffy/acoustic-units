@@ -5,6 +5,7 @@ import numpy as np
 import pandas as pd
 import editdistance
 from tqdm import tqdm
+from joblib import Parallel, delayed
  
 def load_units(dataset, sampled_paths, gamma):
     align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
@@ -73,30 +74,39 @@ def load_units(dataset, sampled_paths, gamma):
 
     return hubert_words, dusted_words
 
-def calculate_distance(words, save=None):
+def compute_distance(args):
+
+    i, j, words = args
+    encoding_i = words[i].clean_encoding
+    encoding_j = words[j].clean_encoding
+    length = max(len(encoding_i), len(encoding_j))
+    
+    if length > 0:
+        return (i, j, editdistance.eval(encoding_i, encoding_j) / length)
+    else:
+        return (i, j, 0)
+
+def calculate_distance(words, save=None, n_jobs=-1):
     num_words = len(words)
     dist_mat = np.zeros((num_words, num_words))
-    for i in tqdm(range(num_words), desc="Calculating Distances"):
-        encoding_i = words[i].clean_encoding
-        for j in range(i+1, num_words):
-            encoding_j = words[j].clean_encoding
-            length = max(len(encoding_i), len(encoding_j))
-            
-            if length > 0:
-                dist = editdistance.eval(encoding_i, encoding_j) / length
-            else:
-                dist = 0 
-            
-            dist_mat[i, j] = dist
-            dist_mat[j, i] = dist
+    
+    index_pairs = [(i, j, words) for i in range(num_words) for j in range(i+1, num_words)]
+
+    results = Parallel(n_jobs=n_jobs, backend="multiprocessing")(
+        delayed(compute_distance)(args) for args in tqdm(index_pairs, desc="Calculating Distances")
+    )
+    for i, j, dist in results:
+        dist_mat[i, j] = dist
+        dist_mat[j, i] = dist
 
     print(dist_mat[0:5, 0:5])
-    if save: 
-        save.mkdir(parents=True, exist_ok=True)
-        out_file = save / "dist_mat.npy"
-        np.save(out_file, dist_mat)
-    return dist_mat
 
+    if save:
+        Path(save).mkdir(parents=True, exist_ok=True)
+        out_file = Path(save) / "dist_mat.npy"
+        np.save(out_file, dist_mat)
+
+    return dist_mat
 
 if __name__ == "__main__":
 

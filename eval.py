@@ -7,8 +7,9 @@ import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
 from scipy.cluster.hierarchy import dendrogram
+from collections import Counter
 
-def ned(word_clusters, print_pure=False):
+def ned(word_clusters, print_pure=False, print_inpure=True):
 
     distances = []
     for i, clust in enumerate(word_clusters):
@@ -20,13 +21,10 @@ def ned(word_clusters, print_pure=False):
                 clust_dist.append(dist)
                 distances.append(dist)
 
-            if any(dist > 0 for dist in clust_dist) or print_pure:
+            if any(dist > 0 for dist in clust_dist) and print_inpure or print_pure:
                 print(f"Cluster {i}: {statistics.mean(clust_dist)}")
-                for p, q in itertools.combinations(clust, 2):   
-                    if editdistance.eval(p.true_word, q.true_word) > 0 or print_pure:
-                        print(p.id, q.id, (p.true_word, q.true_word))
-                        print(len(clust))
-
+                words = [j.true_word for j in clust]
+                print(", ".join(words))
                 print()
 
     return statistics.mean(distances) if distances else 0
@@ -44,19 +42,6 @@ def pairwise_edit_dist_mat(dist_mat, title, true_words):
     sns.heatmap(reordered_dist_df, cmap='viridis')
     plt.title(title)
     plt.show()
-
-    
-def get_word_clusters(int_clusters, words):
-
-    word_clusters = []
-    for clust in int_clusters:
-        words_ = []
-        for k in range(len(clust)):
-            word_k = [w for w in words if w.id == clust[k]]
-            words_.append(word_k[0])
-        word_clusters.append(words_)
-    
-    return word_clusters
 
 
 def words_from_word_units(word_clusters):
@@ -81,6 +66,20 @@ def clusters_purity(just_words_clusters):
         visited = visited.union(clust_set)
        
     return count/total, total
+
+def calculate_duplicate_clusters(clusters, print_clusters=False):
+    normalized_clusters = [Counter([j.true_word for j in clust]) for clust in clusters]
+
+    cluster_counts = Counter(map(lambda d: frozenset(d.items()), normalized_clusters))
+    total_duplicates = sum(count for count in cluster_counts.values() if count > 1)
+    
+    if print_clusters:
+        print(f"Total duplicate clusters (considering word frequency): {sum(count for count in cluster_counts.values() if count > 1)}")
+        print("Duplicate clusters and their counts:")
+        for cluster, count in cluster_counts.items():
+            if count > 1:
+                print(f"{dict(cluster)}: {count} times")
+    return cluster_counts, total_duplicates
 
 def dendogram(dist_mat, true_words):
     condensed_dist_mat = squareform(dist_mat)
