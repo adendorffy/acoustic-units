@@ -125,7 +125,7 @@ def display_words(word_units):
 
 
 def store_words(clusters, dir):
-    out_path = Path(dir) / f"words.csv"
+    out_path = Path(dir) / "words.csv"
     words_df = pd.DataFrame(columns=["id", "filename", "index", "cluster_id"])
     for c in clusters:
         for word in c:
