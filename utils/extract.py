@@ -1,4 +1,5 @@
 from pathlib import Path
+from utils.features import DataSet
 import textgrids
 import  pandas as pd
 import argparse
@@ -22,6 +23,25 @@ def extract_alignments(dataset):
         
     alignments_df.to_csv(out_path, index=False)
     print(f"Wrote alignments to {out_path}")
+
+def get_batch_of_paths(sampled_paths, num_cores): # these are the features
+    num_paths = len(sampled_paths)
+    pairs = [({i: sampled_paths[i]}, {j: sampled_paths[j]}) for i in range(num_paths) for j in range(i+1, num_paths)] 
+    chunk_size = len(pairs) // num_cores
+    chunks = [pairs[i * chunk_size: (i + 1) * chunk_size] for i in range(num_cores)]
+
+    for i, extra in enumerate(pairs[num_cores * chunk_size:]):
+        chunks[i].append(extra)
+
+    return chunks
+
+def fill_chunck(dist_mat, chunk):
+
+    chunk_size = len(chunk)
+    for i in range(chunk_size):
+        dist_mat[chunk[i][0], chunk[i][1]] = 1
+        
+    return dist_mat
 
 
 def main():

@@ -2,6 +2,8 @@ import numpy as np
 import editdistance
 from eval import calculate_duplicate_clusters, ned
 from tqdm import tqdm
+from pathlib import Path
+import pandas as pd
 
 def cluster(dist_mat, dist_threshold):
     num_nodes = dist_mat.shape[0]
@@ -139,3 +141,16 @@ def get_best_clusters(word_clusters, current_ned, max_iter=10, tolerance=1e-5):
 
     print(f"Best NED: {best_ned:.6f}, Best Duplicates: {best_duplicate_count}")
     return best_ned, best_duplicate_count, best_clusters
+
+def save_cluster_centroids(centroids, dir):
+    out_path = Path(dir) / f"words.csv"
+    centroid_df = pd.DataFrame(columns=["id", "text", "units"])
+    for c in range(len(centroids)):
+        
+        new_row = pd.DataFrame(
+            [[c, centroids[c].true_word, centroids[c].clean_encoding]],
+            columns=centroid_df.columns,
+        )
+        centroid_df = pd.concat([centroid_df, new_row], ignore_index=True)
+    centroid_df.to_csv(out_path, index=False)
+    print(f"Wrote centroids to {out_path}")
