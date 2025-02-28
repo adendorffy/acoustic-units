@@ -28,13 +28,12 @@ def pair_generator(num_paths):
         for j in range(i + 1, num_paths):
             yield i, j 
 
-def get_batch_of_paths(num_paths, num_cores, chunk_limit=100000): 
-    num_pairs = int(num_paths*(num_paths-1)/2)
+def get_batch_of_paths(num_paths, num_cores, chunk_limit=100): 
 
     pairs = pair_generator(num_paths)
     chunks = [[] for _ in range(num_cores)]
 
-    for idx, (i, j) in enumerate(tqdm(pairs, total=num_pairs, desc="Distributing Pairs"),1):
+    for idx, (i, j) in enumerate(pairs, 1):
         chunks[idx % num_cores].append((i,j))
 
         if idx % chunk_limit == 0: 
