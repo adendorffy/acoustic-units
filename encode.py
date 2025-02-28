@@ -18,8 +18,20 @@ INT16_MAX = (2**15) - 1
 hop_length = 320
 sample_rate = 16000
 
-def sample_files(dataset, sample_size = 100):
+def count_number_of_utterances_for_features(feat_paths):
+    count = 0
+    seen = []
+    for feat_path in feat_paths:
+        parts = feat_path.stem.split("_")
+        if parts[0] not in seen:
+            count += 1
+            seen.append(parts[0])
+    return count
+
+def sample_files(dataset, sample_size = 100, features=False):
     in_paths = list(dataset.in_dir.rglob(f"**/*{dataset.audio_ext}"))
+    if features:
+        in_paths = list(Path(dataset.feat_dir/"dusted_units/0.2/").rglob("**/*.npy"))
 
     if sample_size == -1:
         return in_paths

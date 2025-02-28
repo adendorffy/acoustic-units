@@ -5,6 +5,7 @@ import numpy as np
 import editdistance
 from tqdm import tqdm
 from joblib import Parallel, delayed
+from utils.features import load_units_from_paths, load_units_for_chunk
 
 def compute_distance(args):
 
@@ -41,6 +42,29 @@ def calculate_distance(words, save=None, n_jobs=-1):
 
     return dist_mat
 
+def calculate_distance_per_chunk(chunk_words, dist_mat):
+    new_dist_mat = np.zeros(dist_mat.shape)
+
+    for pair in chunk_words:
+        encoding_i = pair[0].clean_encoding
+        encoding_j = pair[1].clean_encoding
+        length = max(len(encoding_i), len(encoding_j))
+
+        if length > 0:
+            dist = editdistance.eval(encoding_i, encoding_j) / length
+        else:
+            dist = 0
+
+        new_dist_mat[pair[0].id, pair[1].id] = dist
+
+    return new_dist_mat
+
+def process_chunk(chunk, sampled_paths, dataset, gamma, dist_mat):
+    chunk_paths = [{i: sampled_paths[i], j: sampled_paths[j]} for i, j in chunk]
+    chunk_words = load_units_for_chunk(dataset, "dusted", chunk_paths, gamma)
+    chunk_result = calculate_distance_per_chunk(chunk_words, dist_mat)
+    return chunk_result, chunk_words
+
 if __name__ == "__main__":
 
     current_dir = Path.cwd()
@@ -55,7 +79,7 @@ if __name__ == "__main__":
 
     sampled_paths = sample_files(dataset, 4)
 
-    hubert_words, dusted_words = load_units(dataset, sampled_paths, 0.2)
+    hubert_words, dusted_words = load_units_from_paths(dataset, sampled_paths, 0.2)
 
     num_words = len(hubert_words)
     true_words = []

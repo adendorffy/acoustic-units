@@ -4,7 +4,6 @@ import textgrids
 import  pandas as pd
 import argparse
 from tqdm import tqdm
-import pandas as pd
 
 def extract_alignments(dataset):
     in_paths = list(dataset.align_dir.rglob("**/*.TextGrid"))
@@ -24,16 +23,26 @@ def extract_alignments(dataset):
     alignments_df.to_csv(out_path, index=False)
     print(f"Wrote alignments to {out_path}")
 
-def get_batch_of_paths(sampled_paths, num_cores): # these are the features
-    num_paths = len(sampled_paths)
-    pairs = [({i: sampled_paths[i]}, {j: sampled_paths[j]}) for i in range(num_paths) for j in range(i+1, num_paths)] 
-    chunk_size = len(pairs) // num_cores
-    chunks = [pairs[i * chunk_size: (i + 1) * chunk_size] for i in range(num_cores)]
+def pair_generator(num_paths):
+    for i in range(num_paths):
+        for j in range(i + 1, num_paths):
+            yield i, j 
 
-    for i, extra in enumerate(pairs[num_cores * chunk_size:]):
-        chunks[i].append(extra)
+def get_batch_of_paths(num_paths, num_cores, chunk_limit=100000): 
+    num_pairs = int(num_paths*(num_paths-1)/2)
 
-    return chunks
+    pairs = pair_generator(num_paths)
+    chunks = [[] for _ in range(num_cores)]
+
+    for idx, (i, j) in enumerate(tqdm(pairs, total=num_pairs, desc="Distributing Pairs"),1):
+        chunks[idx % num_cores].append((i,j))
+
+        if idx % chunk_limit == 0: 
+            yield chunks 
+            chunks = [[] for _ in range(num_cores)] 
+
+    if any(chunks):
+        yield chunks
 
 def fill_chunck(dist_mat, chunk):
 

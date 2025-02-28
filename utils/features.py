@@ -228,3 +228,37 @@ def load_units_from_paths(dataset, model, sampled_paths, gamma=None):
             word_id += 1
 
     return words
+
+def load_units_for_chunk(dataset, model, chunk, gamma=None):
+    chunk_words = []
+    align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
+    
+    model_path = dataset.feat_dir / f"{model}_units"
+    if gamma:
+        model_path = dataset.feat_dir / f"{model}_units" / str(gamma)
+
+    keys = []
+    for pair in chunk:
+        pair_keys = tuple(pair.keys()) 
+
+        words = []
+        for key in pair_keys:
+            if key not in keys:
+               
+                path = next(iter(model_path.rglob(f"**/{pair[key].stem}.npy")), None)
+                word = load_word(path, key, align_df)
+                
+                words.append(word)
+                keys.append(key)
+            else:
+                for pair_words in chunk_words:
+                    if pair_words[0].id == key:
+                        words.append(pair_words[0])
+                        break
+                    elif pair_words[1].id == key:
+                        words.append(pair_words[1])
+                        break
+
+        chunk_words.append(tuple(words))
+
+    return chunk_words
