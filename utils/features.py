@@ -6,7 +6,6 @@ from collections import Counter
 from tqdm import tqdm
 import torch
 
-
 class DataSet:
     def __init__(
         self, name: str, in_dir: Path, align_dir: Path, feat_dir: Path, audio_ext: str
