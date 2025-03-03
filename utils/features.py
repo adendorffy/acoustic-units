@@ -228,35 +228,47 @@ def load_units_from_paths(dataset, model, sampled_paths, gamma=None):
 
     return words
 
-def load_units_for_chunk(dataset, model, chunk, gamma=None):
-    chunk_words = []
-    align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
+def preload_npy_files(model_path):
+    """Preload .npy file paths into a dictionary for fast lookups."""
+    file_map = {path.stem: path for path in model_path.rglob("*.npy")}
+    return file_map
+
+def load_units_for_chunk(dataset, model, chunk, gamma=None, align_df=None, file_map=None):
+    """Optimized function for loading units for a chunk."""
     
+    # Read alignments CSV only if not preloaded
+    if align_df is None:
+        align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
+
+    # Determine model path
     model_path = dataset.feat_dir / f"{model}_units"
     if gamma:
-        model_path = dataset.feat_dir / f"{model}_units" / str(gamma)
+        model_path /= str(gamma)
 
-    keys = []
+    # Preload file paths if not provided
+    if file_map is None:
+        file_map = preload_npy_files(model_path)
+
+    chunk_words = []
+    keys = set()  # Use a set for fast lookup
+    words_cache = {}  # Dictionary to store word objects for fast retrieval
+
     for pair in chunk:
-        pair_keys = tuple(pair.keys()) 
-
+        pair_keys = tuple(pair.keys())
         words = []
+
         for key in pair_keys:
             if key not in keys:
-               
-                path = next(iter(model_path.rglob(f"**/{pair[key].stem}.npy")), None)
-                word = load_word(path, key, align_df)
-                
+                path = file_map.get(pair[key].stem, None)  # Fast lookup instead of `rglob`
+                word = load_word(path, key, align_df)  # Load word
                 words.append(word)
-                keys.append(key)
+
+                # Cache the word for future reference
+                words_cache[key] = word
+                keys.add(key)
             else:
-                for pair_words in chunk_words:
-                    if pair_words[0].id == key:
-                        words.append(pair_words[0])
-                        break
-                    elif pair_words[1].id == key:
-                        words.append(pair_words[1])
-                        break
+                # Retrieve from cache instead of iterating through `chunk_words`
+                words.append(words_cache[key])
 
         chunk_words.append(tuple(words))
 

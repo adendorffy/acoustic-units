@@ -28,20 +28,22 @@ def pair_generator(num_paths):
         for j in range(i + 1, num_paths):
             yield i, j 
 
-def get_batch_of_paths(num_paths, num_cores, chunk_limit=100): 
-
-    pairs = pair_generator(num_paths)
-    chunks = [[] for _ in range(num_cores)]
+def get_batch_of_paths(num_paths, chunk_limit=100): 
+    """Generate sequential batches of (i, j) path pairs."""
+    pairs = pair_generator(num_paths)  # Generate all possible pairs
+    chunk = []  # Single list for sequential processing
 
     for idx, (i, j) in enumerate(pairs, 1):
-        chunks[idx % num_cores].append((i,j))
+        chunk.append((i, j))
 
         if idx % chunk_limit == 0: 
-            yield chunks 
-            chunks = [[] for _ in range(num_cores)] 
 
-    if any(chunks):
-        yield chunks
+            yield chunk  # Yield the current batch
+            chunk = []  # Reset chunk
+
+    if chunk:  # Yield any remaining pairs
+        yield chunk
+
 
 def fill_chunck(dist_mat, chunk):
 
