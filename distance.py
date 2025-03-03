@@ -13,22 +13,24 @@ def compute_distance(encoding_i, encoding_j):
     return 0
 
 
-def calculate_distance_per_chunk(chunk_words, dist_mat):
-    
+def calculate_distance_per_chunk(chunk_words):
+    """Process sub-chunk and return computed distances with indices"""
+    results = []  # List to store computed distances
+
     for pair in chunk_words:
-        
         encoding_i = pair[0].clean_encoding
         encoding_j = pair[1].clean_encoding
-        
 
-        dist_mat[pair[0].id, pair[1].id] = compute_distance(encoding_i, encoding_j)
+        distance = compute_distance(encoding_i, encoding_j)
+        results.append((pair[0].id, pair[1].id, distance)) 
+    
+    return results
 
-    return dist_mat 
 
-def process_chunk(chunk, sampled_paths, dataset, gamma, dist_mat):
+def process_chunk(chunk, sampled_paths, dataset, gamma):
     chunk_paths = [{i: sampled_paths[i], j: sampled_paths[j]} for i, j in chunk]
     chunk_words = load_units_for_chunk(dataset, "dusted", chunk_paths, gamma)
-    chunk_result = calculate_distance_per_chunk(chunk_words, dist_mat)
+    chunk_result = calculate_distance_per_chunk(chunk_words)
     return chunk_result, chunk_words
 
 def store_words_for_chunk(chunk_words, path):
