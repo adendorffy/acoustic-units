@@ -5,6 +5,8 @@ import ace_tools_open as tools
 from collections import Counter
 from tqdm import tqdm
 import torch
+from concurrent.futures import ThreadPoolExecutor  # or ProcessPoolExecutor if CPU-bound
+
 
 class DataSet:
     def __init__(
@@ -228,17 +230,24 @@ def load_units_from_paths(dataset, model, sampled_paths, gamma=None):
 
     return words
 
+
 def preload_npy_files(model_path):
     """Preload .npy file paths into a dictionary for fast lookups."""
-    file_map = {path.stem: path for path in model_path.rglob("*.npy")}
-    return file_map
+    return {path.stem: path for path in model_path.rglob("*.npy")}
 
-def load_units_for_chunk(dataset, model, chunk, gamma=None, align_df=None, file_map=None):
-    """Optimized function for loading units for a chunk."""
-    
-    # Read alignments CSV only if not preloaded
+
+def load_units_for_chunk(
+    dataset, model, chunk, gamma=None, align_df=None, file_map=None
+):
+    """Optimized function for loading units for a chunk with parallel loading."""
+
+    # Use an efficient format like Parquet if available
     if align_df is None:
-        align_df = pd.read_csv(dataset.align_dir / "alignments.csv")
+        csv_path = dataset.align_dir / "alignments.csv"
+        if csv_path.with_suffix(".parquet").exists():
+            align_df = pd.read_parquet(csv_path.with_suffix(".parquet"))
+        else:
+            align_df = pd.read_csv(csv_path)
 
     # Determine model path
     model_path = dataset.feat_dir / f"{model}_units"
@@ -246,30 +255,27 @@ def load_units_for_chunk(dataset, model, chunk, gamma=None, align_df=None, file_
         model_path /= str(gamma)
 
     # Preload file paths if not provided
-    if file_map is None:
-        file_map = preload_npy_files(model_path)
+    file_map = file_map or preload_npy_files(model_path)
 
+    words_cache = {}  # Cache for fast word retrieval
+    keys = set()
     chunk_words = []
-    keys = set()  # Use a set for fast lookup
-    words_cache = {}  # Dictionary to store word objects for fast retrieval
 
-    for pair in chunk:
-        pair_keys = tuple(pair.keys())
-        words = []
+    def process_key(key):
+        """Helper function to process a single key."""
+        if key in keys:
+            return words_cache[key]  # Retrieve from cache
+        path = file_map.get(key)  # Fast dictionary lookup
+        word = load_word(path, key, align_df)  # Load word
+        words_cache[key] = word  # Cache it
+        keys.add(key)
+        return word
 
-        for key in pair_keys:
-            if key not in keys:
-                path = file_map.get(pair[key].stem, None)  # Fast lookup instead of `rglob`
-                word = load_word(path, key, align_df)  # Load word
-                words.append(word)
-
-                # Cache the word for future reference
-                words_cache[key] = word
-                keys.add(key)
-            else:
-                # Retrieve from cache instead of iterating through `chunk_words`
-                words.append(words_cache[key])
-
-        chunk_words.append(tuple(words))
+    # Parallelized processing (Use ThreadPoolExecutor if I/O-bound, ProcessPoolExecutor if CPU-bound)
+    with ThreadPoolExecutor() as executor:
+        for pair in chunk:
+            pair_keys = tuple(pair.keys())
+            words = list(executor.map(process_key, pair_keys))  # Parallel processing
+            chunk_words.append(tuple(words))
 
     return chunk_words
