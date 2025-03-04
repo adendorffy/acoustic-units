@@ -1,0 +1,76 @@
+Timer unit: 1e-09 s
+
+Total time: 7.17247 s
+File: /home/danel/Documents/acoustic-units/get_dist_mat.py
+Function: load_units at line 34
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    34                                               for idx, (i, j) in enumerate(pairs, 1):
+    35                                                   chunk.append((i, j))
+    36     63137 7172469093.0 113601.7    100.0  
+    37                                                   if idx % chunk_limit == 0:
+    38                                                       yield chunk 
+    39                                                       chunk = [] 
+    40                                           
+    41                                               if chunk:  
+    42                                                   yield chunk
+    43                                           
+    44                                           
+    45                                           @profile
+    46                                           def load_units(path: Path) -> np.ndarray:
+    47                                               """
+    48                                               Loads a NumPy array from the given file path.
+    49                                           
+    50                                               Args:
+    51                                                   path (Path): Path to the .npy file.
+    52                                           
+    53                                               Returns:
+    54                                                   np.ndarray: Loaded NumPy array.
+    55                                               """
+    56                                               return np.load(path)
+
+Total time: 7594.6 s
+File: /home/danel/Documents/acoustic-units/get_dist_mat.py
+Function: main at line 60
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    60                                               """
+    61                                               Calculates the normalized edit distance for a given pair of feature sequences.
+    62                                           
+    63         1      16880.0  16880.0      0.0      Args:
+    64                                                   chunk_pair (dict): Dictionary with a single key-value pair where:
+    65         1        201.0    201.0      0.0              - Key: Tuple (i, j) representing the indices of the feature pair.
+    66         1        155.0    155.0      0.0              - Value: Tuple (feature_i, feature_j) containing the feature sequences.
+    67     63138 1021489052.0  16178.7      0.0  
+    68     63137   27294182.0    432.3      0.0      Returns:
+    69     63137 7443324872.0 117891.6      0.1          tuple: (index_i, index_j, normalized edit distance).
+    70                                               """
+    71         1        225.0    225.0      0.0  
+    72         1      16845.0  16845.0      0.0      id_1, id_2 = tuple(chunk_pair.keys())[0]
+    73         1     137516.0 137516.0      0.0      feature_1, feature_2 = tuple(chunk_pair.values())[0]
+    74                                           
+    75                                               length = np.max([len(feature_1), len(feature_2)])
+    76         1        246.0    246.0      0.0  
+    77         1       7962.0   7962.0      0.0      dist = 0
+    78         1      67160.0  67160.0      0.0      if length > 0:
+    79                                                   dist =  editdistance.eval(feature_1, feature_2) / length
+    80         1        141.0    141.0      0.0  
+    81         1        916.0    916.0      0.0      return (id_1, id_2, dist)
+    82         1        706.0    706.0      0.0  
+    83                                           def info_to_csv(csv_path: str, file_map: Dict[int, Path]) -> None:
+    84       843        6e+11    7e+08      7.3      """
+    85 843000843        2e+12   2293.2     25.5      Saves the mapping of indices to filenames in a CSV file.
+    86                                           
+    87      1686        3e+11    2e+08      4.1      Args:
+    88       843        4e+12    5e+09     57.2          csv_path (str): Path to the output CSV file.
+    89                                                   file_map (dict): Dictionary mapping index (int) to filename (Path).
+    90 842000842        2e+11    246.8      2.7      """
+    91 842000000        2e+11    274.8      3.0      
+    92                                               rows: List[Tuple[int, Path]] = [(file, file_map[int(file)]) for file in file_map]
+    93                                               df = pd.DataFrame(rows, columns=["id", "filename"])
+    94                                               df.to_csv(csv_path, index=False)
+
+  7.17 seconds - /home/danel/Documents/acoustic-units/get_dist_mat.py:34 - load_units
+7594.60 seconds - /home/danel/Documents/acoustic-units/get_dist_mat.py:60 - main

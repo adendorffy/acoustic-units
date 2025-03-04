@@ -29,7 +29,7 @@ def get_batch_of_paths(num_paths: int, chunk_limit:int = 100) -> Generator[List[
         List of tuples containing index pairs (i, j).
     """
     pairs = pair_generator(num_paths) 
-    chunk = List[Tuple[int, int]] = []
+    chunk: List[Tuple[int, int]] = []
 
     for idx, (i, j) in enumerate(pairs, 1):
         chunk.append((i, j))
@@ -88,7 +88,8 @@ def info_to_csv(csv_path: str, file_map: Dict[int, Path]) -> None:
         csv_path (str): Path to the output CSV file.
         file_map (dict): Dictionary mapping index (int) to filename (Path).
     """
-    rows: List[Tuple[int, Path]] = [(file, file_map[file]) for file in file_map]
+    
+    rows: List[Tuple[int, Path]] = [(file, file_map[int(file)]) for file in file_map]
     df = pd.DataFrame(rows, columns=["id", "filename"])
     df.to_csv(csv_path, index=False)
 
@@ -105,7 +106,7 @@ def main() -> None:
     file_map = {}
     features = []
     for i, feature in enumerate(feat_dir.rglob("**/*.npy")):
-        file_map[i] = feature
+        file_map[i] = feature.stem
         features.append(load_units(feature))
 
     sample_size = i
@@ -131,8 +132,8 @@ def main() -> None:
             dist_mat[i, j] = dist
         
     
-    info_to_csv(file_map, csv_path)
-    np.savez_compressed(dist_mat, dist_mat_out_path)
+    info_to_csv(csv_path, file_map)
+    np.savez_compressed(dist_mat_out_path, dist_mat)
 
 if __name__ == "__main__":
     main()

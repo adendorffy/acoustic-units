@@ -143,7 +143,7 @@ def get_best_clusters(word_clusters, current_ned, max_iter=10, tolerance=1e-5):
     return best_ned, best_duplicate_count, best_clusters
 
 def save_cluster_centroids(centroids, dir):
-    out_path = Path(dir) / f"words.csv"
+    out_path = Path(dir) / "words.csv"
     centroid_df = pd.DataFrame(columns=["id", "text", "units"])
     for c in range(len(centroids)):
         
