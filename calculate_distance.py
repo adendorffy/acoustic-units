@@ -7,6 +7,7 @@ from tqdm import tqdm
 from multiprocessing import Pool
 import time
 import editdistance
+from line_profiler import profile
 
 def pair_generator(num_paths):
     for i in range(num_paths):
@@ -29,7 +30,7 @@ def get_batch_of_paths(num_paths, chunk_limit=100):
     if chunk:  
         yield chunk
 
-
+@profile
 def load_word(word_path, word_id, align_df):
 
     """Loads a word unit with metadata and encoding information."""
@@ -62,7 +63,7 @@ def load_word(word_path, word_id, align_df):
     word.update_encoding(units)
     return word
 
-
+@profile
 def process_key(key, file_map, words_cache, keys, align_df):
     """Helper function to process a single key."""
     if key in words_cache:
@@ -78,6 +79,7 @@ def process_key(key, file_map, words_cache, keys, align_df):
     keys.add(key)
     return word
 
+@profile
 def load_units_for_chunk(chunk, file_map, align_df):
     """Optimized function for loading units for a chunk with parallel loading using joblib."""
     
@@ -107,6 +109,7 @@ def store_words_for_chunk(chunk_words, words_df, path):
 
     words_df.to_csv(path, index=False)
 
+@profile
 def calculate_distance_per_chunk(chunk_pair):
     """Process chunk-pair and return computed distances with indices"""
     
@@ -121,9 +124,8 @@ def calculate_distance_per_chunk(chunk_pair):
 
     return (chunk_pair[0].id, chunk_pair[1].id, dist)
 
-
-if __name__ == "__main__":
-
+@profile
+def main():
     name = "librispeech-dev-clean"
     in_dir = Path("data/dev-clean")
     align_dir = Path("data/alignments/dev-clean")
@@ -164,13 +166,18 @@ if __name__ == "__main__":
 
         for i, j, dist in chunk_results:
             dist_mat[i, j] = dist
+        break
     
    
-    print(f"saving words to {word_csv_path} and dist_mat to {out_path}")
-    words_df = pd.read_csv(word_csv_path)
-    store_words_for_chunk(words, words_df, word_csv_path)
-    np.savez_compressed(out_path, dist_mat.numpy())
+    # print(f"saving words to {word_csv_path} and dist_mat to {out_path}")
+    # words_df = pd.read_csv(word_csv_path)
+    # store_words_for_chunk(words, words_df, word_csv_path)
+    # np.savez_compressed(out_path, dist_mat.numpy())
 
     end_time = time.perf_counter()
 
     print(f"Total time: {end_time - start_time}s")
+
+if __name__ == "__main__":
+
+    main()
