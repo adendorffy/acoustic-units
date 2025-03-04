@@ -148,7 +148,7 @@ if __name__ == "__main__":
     out_path = Path("output/dusted/dist_mat.npz")
     out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    chunk_limit = 100
+    chunk_limit = 1000000
     num_pairs = sample_size * (sample_size - 1) // 2
     num_chunks = (num_pairs + chunk_limit - 1) // chunk_limit 
 
