@@ -7,7 +7,6 @@ from tqdm import tqdm
 from multiprocessing import Pool
 import time
 import editdistance
-import itertools
 
 def pair_generator(num_paths):
     for i in range(num_paths):
@@ -79,21 +78,21 @@ def process_key(key, file_map, words_cache, keys, align_df):
     keys.add(key)
     return word
 
-def load_units_for_chunk(chunk_pair, file_map, align_df):
+def load_units_for_chunk(chunk, file_map, align_df):
     """Optimized function for loading units for a chunk with parallel loading using joblib."""
     
     words_cache = {}  # Cache for fast word retrieval
     keys = set()
     chunk_words = []
 
-    # for chunk_pair in chunk:
-    pair_keys = tuple(chunk_pair.keys())    
+    for chunk_pair in chunk:
+        pair_keys = tuple(chunk_pair.keys())
 
-    words= []
-    for key in pair_keys:
-        words.append(process_key(key, file_map, words_cache, keys, align_df))
-        
-    chunk_words.append(tuple(words))
+        words= []
+        for key in pair_keys:
+            words.append(process_key(key, file_map, words_cache, keys, align_df))
+            
+        chunk_words.append(tuple(words))
 
     return chunk_words
 
@@ -108,24 +107,20 @@ def store_words_for_chunk(chunk_words, words_df, path):
 
     words_df.to_csv(path, index=False)
 
-def calculate_distance_per_chunk(chunk):
+def calculate_distance_per_chunk(chunk_pair):
     """Process chunk-pair and return computed distances with indices"""
-    res = []
-    for chunk_pair in chunk[0]:
-        encoding_i = chunk_pair[0].clean_encoding
-        encoding_j = chunk_pair[1].clean_encoding
+    
+    encoding_i = chunk_pair[0].clean_encoding
+    encoding_j = chunk_pair[1].clean_encoding
 
-        length = np.max([len(encoding_i), len(encoding_j)])
+    length = np.max([len(encoding_i), len(encoding_j)])
 
-        dist = 0
-        if length > 0:
-            dist =  editdistance.eval(encoding_i, encoding_j) / length
+    dist = 0
+    if length > 0:
+        dist =  editdistance.eval(encoding_i, encoding_j) / length
 
-    res.append((chunk_pair[0].id, chunk_pair[1].id, dist))
-    return res
+    return (chunk_pair[0].id, chunk_pair[1].id, dist)
 
-def print_chunk(args):
-    print(args[0])
 
 if __name__ == "__main__":
 
@@ -161,12 +156,10 @@ if __name__ == "__main__":
     start_time = time.perf_counter()
     for chunk in tqdm(get_batch_of_paths(sample_size, chunk_limit=chunk_limit), total=num_chunks, desc="Processing chunks"):
         chunk_paths = [{i: file_map[i], j: file_map[j]} for i, j in chunk]
-        
+        chunk_words = load_units_for_chunk(chunk_paths, file_map=file_map, align_df=align_df)
         with Pool(7) as pool:
-            chunk_words = pool.starmap(load_units_for_chunk, 
-                                       zip(chunk_paths, itertools.repeat(file_map), itertools.repeat(align_df)))
-
-        chunk_results = calculate_distance_per_chunk(chunk_words)
+            chunk_results = pool.map(calculate_distance_per_chunk, chunk_words)
+        
         words.extend(chunk_words)
 
         for i, j, dist in chunk_results:
