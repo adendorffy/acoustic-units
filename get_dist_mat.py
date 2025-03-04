@@ -1,24 +1,35 @@
 from pathlib import Path
-from utils.features import DataSet
 import numpy as np
-from utils.features import WordUnit
 import pandas as pd
 from tqdm import tqdm
 from multiprocessing import Pool
-import time
 import editdistance
 from line_profiler import profile
+from typing import Generator, List, Tuple, Dict
 
 
-def pair_generator(num_paths):
+def pair_generator(num_paths:int) -> Generator[Tuple[int, int], None, None]:
+    """
+    Generator function that yields all unique index pairs (i, j) 
+    where i < j. This ensures each pair is processed only once.
+    """
     for i in range(num_paths):
         for j in range(i + 1, num_paths):
             yield i, j
 
-def get_batch_of_paths(num_paths, chunk_limit=100):
-    """Generate sequential batches of (i, j) path pairs."""
+def get_batch_of_paths(num_paths: int, chunk_limit:int = 100) -> Generator[List[Tuple[int, int]], None, None]:
+    """
+    Creates and yields chunks of index pairs for processing.
+    
+    Args:
+        num_paths (int): Number of paths (features) to process.
+        chunk_limit (int): Maximum number of pairs in each chunk.
+    
+    Yields:
+        List of tuples containing index pairs (i, j).
+    """
     pairs = pair_generator(num_paths) 
-    chunk = [] 
+    chunk = List[Tuple[int, int]] = []
 
     for idx, (i, j) in enumerate(pairs, 1):
         chunk.append((i, j))
@@ -32,12 +43,32 @@ def get_batch_of_paths(num_paths, chunk_limit=100):
 
 
 @profile
-def load_units(path):
+def load_units(path: Path) -> np.ndarray:
+    """
+    Loads a NumPy array from the given file path.
+
+    Args:
+        path (Path): Path to the .npy file.
+
+    Returns:
+        np.ndarray: Loaded NumPy array.
+    """
     return np.load(path)
 
 @profile
-def calculate_distance_per_chunk(chunk_pair):
-    
+def calculate_distance_per_chunk(chunk_pair: Dict[Tuple[int, int], Tuple[np.ndarray, np.ndarray]]) -> Tuple[int, int, float]:
+    """
+    Calculates the normalized edit distance for a given pair of feature sequences.
+
+    Args:
+        chunk_pair (dict): Dictionary with a single key-value pair where:
+            - Key: Tuple (i, j) representing the indices of the feature pair.
+            - Value: Tuple (feature_i, feature_j) containing the feature sequences.
+
+    Returns:
+        tuple: (index_i, index_j, normalized edit distance).
+    """
+
     id_1, id_2 = tuple(chunk_pair.keys())[0]
     feature_1, feature_2 = tuple(chunk_pair.values())[0]
 
@@ -49,17 +80,26 @@ def calculate_distance_per_chunk(chunk_pair):
 
     return (id_1, id_2, dist)
 
-def info_to_csv(csv_path, file_map):
-    rows = [
-        (file, file_map[file])
-        for file in file_map
-    ]
+def info_to_csv(csv_path: str, file_map: Dict[int, Path]) -> None:
+    """
+    Saves the mapping of indices to filenames in a CSV file.
+
+    Args:
+        csv_path (str): Path to the output CSV file.
+        file_map (dict): Dictionary mapping index (int) to filename (Path).
+    """
+    rows: List[Tuple[int, Path]] = [(file, file_map[file]) for file in file_map]
     df = pd.DataFrame(rows, columns=["id", "filename"])
     df.to_csv(csv_path, index=False)
 
 @profile
-def main():
-
+def main() -> None:
+    """
+    Main function that:
+    - Loads feature data from files.
+    - Computes pairwise edit distances in chunks.
+    - Saves distance matrix and file metadata.
+    """
     feat_dir = Path("features/dusted_units/0.2/")
     
     file_map = {}
