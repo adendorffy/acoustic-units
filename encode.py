@@ -73,7 +73,7 @@ def cut_and_clean_encoding(encoding, flags, word_boundaries):
     return clean_encoding
 
 
-def get_units(paths, align_df, gamma, layer, save_dir):
+def get_units(paths, align_df, wav_dir, gamma, layer, save_dir):
     kmeans, segment = torch.hub.load(
         "bshall/dusted:main", "kmeans", language="english", trust_repo=True
     )
@@ -104,7 +104,7 @@ def get_units(paths, align_df, gamma, layer, save_dir):
                     clean_encoding.numpy(), kmeans.cluster_centers_, gamma
                 )
 
-            save_path = save_dir / str(gamma) / f"{path.stem}_{w}.npy"
+            save_path = save_dir / str(gamma) / path.relative_to(wav_dir) / f"_{w}.npy"
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
             np.save(save_path, codes)

@@ -5,6 +5,7 @@ import editdistance
 import pandas as pd
 from tqdm import tqdm
 from multiprocessing import Pool
+import scipy.sparse as sp
 
 
 def pair_generator(num_paths: int) -> Generator[Tuple[int, int], None, None]:
@@ -85,24 +86,25 @@ def info_to_csv(csv_path: str, file_map: Dict[int, Path]) -> None:
     df.to_csv(csv_path, index=False)
 
 
-def process_chunks(
+def process_chunks_sparse(
     feat_dir: Path, info_csv_path: Path, dist_mat_out_path: Path, chunk_limit: int
 ) -> None:
-    dist_mat_out_path.parent.mkdir(parents=True, exist_ok=True)
     """
-    Processes feature files from a directory, computes pairwise distances between them in chunks, 
-    and saves the resulting distance matrix.
+    Processes feature files from a directory, computes pairwise distances between them in chunks,
+    and saves the resulting distance matrix in a sparse format.
 
     Args:
         feat_dir (Path): Directory containing `.npy` feature files.
         info_csv_path (Path): Path to save the CSV file mapping indices to file names.
-        dist_mat_out_path (Path): Path to save the compressed distance matrix.
+        dist_mat_out_path (Path): Path to save the compressed sparse distance matrix.
         chunk_limit (int): Maximum number of pairs to process per chunk.
 
     Returns:
         None
     """
+    dist_mat_out_path.parent.mkdir(parents=True, exist_ok=True)
 
+    # Load feature files
     file_map = {}
     features = []
     for i, feature in enumerate(feat_dir.rglob("**/*.npy")):
@@ -110,11 +112,16 @@ def process_chunks(
         features.append(np.load(feature))
 
     sample_size = len(features)
-    dist_mat = np.zeros((sample_size, sample_size))
+
+    # Prepare lists to store sparse matrix elements
+    row_indices: List[int] = []
+    col_indices: List[int] = []
+    values: List[float] = []
 
     num_pairs = sample_size * (sample_size - 1) // 2
     num_chunks = (num_pairs + chunk_limit - 1) // chunk_limit
 
+    # Process pairwise distances in chunks
     for chunk in tqdm(
         get_batch_of_paths(sample_size, chunk_limit=chunk_limit),
         total=num_chunks,
@@ -125,8 +132,38 @@ def process_chunks(
         with Pool(7) as pool:
             chunk_results = pool.map(calculate_distance_per_chunk_pair, chunk_units)
 
+        # Store results in sparse format
         for i, j, dist in chunk_results:
-            dist_mat[i, j] = dist
+            row_indices.append(i)
+            col_indices.append(j)
+            values.append(dist)
 
+    # Create a sparse COO matrix
+    dist_sparse = sp.coo_matrix(
+        (values, (row_indices, col_indices)), shape=(sample_size, sample_size)
+    )
+
+    # Save the sparse matrix
+    sp.save_npz(dist_mat_out_path, dist_sparse)
+
+    # Save mapping of indices to filenames
     info_to_csv(info_csv_path, file_map)
-    np.savez_compressed(dist_mat_out_path, dist_mat)
+
+
+def main():
+    gamma = 0.1
+    feat_dir = Path(f"features/{gamma}")
+    csv_path = Path(f"output/{gamma}/info.csv")
+    dist_mat_out_path = Path(f"output/{gamma}/dist_mat.npz")
+    chunk_limit = 1000000
+
+    process_chunks_sparse(
+        feat_dir=feat_dir,
+        info_csv_path=csv_path,
+        dist_mat_out_path=dist_mat_out_path,
+        chunk_limit=chunk_limit,
+    )
+
+
+if __name__ == "__main__":
+    main()
