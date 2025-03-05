@@ -1,100 +1,116 @@
-import itertools
 import editdistance
+import itertools
 import statistics
-import pandas as pd
-import seaborn as sns
+from tqdm import tqdm
 import matplotlib.pyplot as plt
 from scipy.cluster.hierarchy import linkage, leaves_list
 from scipy.spatial.distance import squareform
-from scipy.cluster.hierarchy import dendrogram
-from collections import Counter
-from tqdm import tqdm
+import seaborn as sns
+import pandas as pd
+from scipy.sparse import issparse
 
 
-def ned(word_clusters, print_pure=False, print_inpure=True):
+def get_true_words(info_df: pd.DataFrame, align_df: pd.DataFrame):
+    """
+    Efficiently extracts corresponding words from `align_df` based on `info_df` filenames.
+
+    Args:
+        info_df (pd.DataFrame): DataFrame containing `filename` column with "file_wordID".
+        align_df (pd.DataFrame): DataFrame containing `filename`, `word_id`, and `text`.
+
+    Returns:
+        List[str]: List of corresponding words or "_" if no match is found.
+    """
+    # Split 'filename' into separate 'filename' and 'word_id' columns
+    split_cols = info_df["filename"].str.split("_", expand=True)
+    info_df[["filename", "word_id"]] = split_cols
+    info_df["word_id"] = info_df["word_id"].astype(
+        int
+    )  # Convert word_id to int for merging
+
+    # Merge info_df with align_df on 'filename' and 'word_id'
+    merged_df = info_df.merge(align_df, on=["filename", "word_id"], how="left")
+
+    # Fill missing text values with "_"
+    merged_df["text"] = merged_df["text"].fillna("_")
+
+    return merged_df["text"].tolist()  # Return as a list
+
+
+def convert_to_word_clusters(int_clusters, text_arr):
+    word_clusters = []
+    for cluster in int_clusters:
+        words = []
+        for i in cluster:
+            words.append(text_arr[i])
+        word_clusters.append(words)
+    return word_clusters
+
+
+def ned(word_clusters):
     distances = []
-    for i, clust in tqdm(
-        enumerate(word_clusters), total=len(word_clusters), desc="Calculating NED"
-    ):
-        if len(clust) > 1:
-            clust_dist = []
 
-            for p, q in itertools.combinations(clust, 2):
-                dist = editdistance.eval(p.true_word, q.true_word)
-                clust_dist.append(dist)
-                distances.append(dist)
+    for cluster in tqdm(word_clusters, desc="Calculating NED"):
+        for p, q in itertools.combinations(cluster, 2):
+            dist = editdistance.eval(p, q)
+            distances.append(dist)
 
-            if any(dist > 0 for dist in clust_dist) and print_inpure or print_pure:
-                print(f"Cluster {i}: {statistics.mean(clust_dist)}")
-                words = [j.true_word for j in clust]
-                print(", ".join(words))
-                print()
+    mean_dist = 0
+    if distances:
+        mean_dist = statistics.mean(distances)
 
-    return statistics.mean(distances) if distances else 0
+    return mean_dist
 
 
 def pairwise_edit_dist_mat(dist_mat, title, true_words):
-    condensed_dist_mat = squareform(dist_mat)
+    """
+    Visualizes a pairwise edit distance matrix, adapted for sparse representations.
+
+    Parameters:
+    - dist_mat (scipy.sparse or np.ndarray): The pairwise distance matrix (sparse or dense).
+    - title (str): Title for the heatmap.
+    - true_words (list): List of words corresponding to the matrix rows/columns.
+
+    Returns:
+    - None (displays heatmap)
+    """
+
+    # Convert sparse matrix to dense if necessary
+    if issparse(dist_mat):
+        dist_mat = dist_mat.toarray()  # Convert to dense NumPy array
+
+    # Convert to condensed form for clustering
+    dist_mat += dist_mat.T
+    condensed_dist_mat = squareform(dist_mat)  # Ensure proper format
+
+    # Create a DataFrame for visualization
     dist_df_hub = pd.DataFrame(dist_mat, index=true_words, columns=true_words)
+
+    # Perform hierarchical clustering
     linked = linkage(condensed_dist_mat, method="average")
     order = leaves_list(linked)
+
+    # Reorder distance matrix based on clustering
     reordered_dist_df = dist_df_hub.iloc[order, order]
 
-    plt.Figure(figsize=(8, 6))
-    sns.heatmap(reordered_dist_df, cmap="viridis")
+    # Plot the heatmap
+    plt.figure(figsize=(8, 6))
+    sns.heatmap(reordered_dist_df, cmap="viridis", xticklabels=True, yticklabels=True)
     plt.title(title)
     plt.show()
 
 
-def words_from_word_units(word_clusters):
-    clusters = []
-    for cluster in word_clusters:
-        words = []
-        for word in cluster:
-            words.append(word.true_word)
-        clusters.append(words)
-    return clusters
+def print_clusters(word_clusters, print_pure=False, print_inpure=True):
+    for i, clust in enumerate(word_clusters):
+        if len(clust) > 1:
+            clust_dist = []
 
+            for p, q in itertools.combinations(clust, 2):
+                dist = editdistance.eval(p, q)
+                clust_dist.append(dist)
 
-def clusters_purity(just_words_clusters):
-    count = 0
-    total = len(just_words_clusters)
-    visited = set(just_words_clusters[0])
-    for c in range(1, total):
-        clust_set = set(just_words_clusters[c])
-
-        if visited.intersection(clust_set):
-            count += 1
-
-        visited = visited.union(clust_set)
-
-    return count / total, total
-
-
-def calculate_duplicate_clusters(clusters, print_clusters=False):
-    normalized_clusters = [Counter([j.true_word for j in clust]) for clust in clusters]
-
-    cluster_counts = Counter(map(lambda d: frozenset(d.items()), normalized_clusters))
-    total_duplicates = sum(count for count in cluster_counts.values() if count > 1)
-
-    if print_clusters:
-        print(
-            f"Total duplicate clusters (considering word frequency): {sum(count for count in cluster_counts.values() if count > 1)}"
-        )
-        print("Duplicate clusters and their counts:")
-        for cluster, count in cluster_counts.items():
-            if count > 1:
-                print(f"{dict(cluster)}: {count} times")
-    return cluster_counts, total_duplicates
-
-
-def dendogram(dist_mat, true_words):
-    condensed_dist_mat = squareform(dist_mat)
-    linked = linkage(condensed_dist_mat, method="average")
-
-    plt.figure(figsize=(10, 6))
-    dendrogram(linked, labels=true_words, leaf_font_size=6)
-    plt.title("Hierarchical Clustering Dendrogram")
-    plt.xlabel("Sample")
-    plt.ylabel("Distance")
-    plt.show()
+            if any(dist > 0 for dist in clust_dist) and print_inpure or print_pure:
+                print(f"Cluster {i}: {statistics.mean(clust_dist)}")
+                words = [j for j in clust]
+                print(", ".join(words))
+                print()

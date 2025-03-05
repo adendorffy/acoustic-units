@@ -1,36 +1,147 @@
-import numpy as np
-import editdistance
-from eval import calculate_duplicate_clusters, ned
 from tqdm import tqdm
-from pathlib import Path
-import pandas as pd
+import numpy as np
+import scipy.sparse as sp
 
-def cluster(dist_mat, dist_threshold):
+
+class UnionFind:
+    """Efficient Union-Find (Disjoint Set) with path compression and union by rank."""
+
+    def __init__(self, size: int):
+        self.parent = np.arange(size)
+        self.rank = np.zeros(size, dtype=int)
+
+    def find(self, node: int) -> int:
+        """Find the root with path compression."""
+        if self.parent[node] != node:
+            self.parent[node] = self.find(self.parent[node])
+        return self.parent[node]
+
+    def union(self, node1: int, node2: int) -> None:
+        """Union by rank optimization."""
+        root1, root2 = self.find(node1), self.find(node2)
+        if root1 != root2:
+            if self.rank[root1] > self.rank[root2]:
+                self.parent[root2] = root1
+            elif self.rank[root1] < self.rank[root2]:
+                self.parent[root1] = root2
+            else:
+                self.parent[root2] = root1
+                self.rank[root1] += 1
+
+
+def cluster_sparse(dist_mat: sp.spmatrix, dist_threshold: float):
+    """
+    Clusters points using a sparse distance matrix and Union-Find.
+
+    Args:
+        dist_mat (sp.spmatrix): Upper triangular sparse distance matrix.
+        dist_threshold (float): Maximum distance for clustering.
+
+    Returns:
+        List[List[int]]: List of clusters.
+    """
+    num_nodes = dist_mat.shape[0]
+    uf = UnionFind(num_nodes)
+
+    # Extract nonzero elements (upper triangular values)
+    i_indices, j_indices, values = sp.find(
+        dist_mat
+    )  # Efficiently retrieves stored distances
+
+    # Filter based on threshold
+    mask = values < dist_threshold
+    i_indices, j_indices = i_indices[mask], j_indices[mask]
+
+    # Perform union operations in batches
+    for i, j in tqdm(
+        zip(i_indices, j_indices), total=len(i_indices), desc="Clustering"
+    ):
+        uf.union(i, j)
+
+    # Group nodes by root parent
+    clusters = {}
+    for node in tqdm(range(num_nodes), desc="Grouping Clusters"):
+        root = uf.find(node)
+        if root not in clusters:
+            clusters[root] = []
+        clusters[root].append(node)
+
+    return list(clusters.values())
+
+
+def to_sparse_upper_chunked(
+    dist_mat: np.ndarray, chunk_size: int = 5000, save_path: str = "sparse_dist_mat.npz"
+):
+    """
+    Convert a large full distance matrix to a sparse upper triangular format in chunks.
+
+    Args:
+        dist_mat (np.ndarray): Large full distance matrix (NxN).
+        chunk_size (int): Number of rows to process at a time.
+        save_path (str): Path to save the sparse matrix.
+
+    Returns:
+        sp.spmatrix: Sparse upper triangular matrix (COO format).
+    """
+    num_nodes = dist_mat.shape[0]
+    row_indices = []
+    col_indices = []
+    values = []
+
+    # Process the upper triangle in chunks
+    for start in tqdm(
+        range(0, num_nodes, chunk_size), desc="Converting to Sparse", unit="chunk"
+    ):
+        end = min(start + chunk_size, num_nodes)  # Define chunk range
+        i_indices, j_indices = np.triu_indices(
+            end - start, k=1
+        )  # Get upper triangle indices
+
+        i_indices += start  # Offset row indices
+        row_indices.extend(i_indices)
+        col_indices.extend(j_indices)
+        values.extend(dist_mat[i_indices, j_indices])  # Append only relevant values
+
+    # Convert to sparse COO format
+    sparse_matrix = sp.coo_matrix(
+        (values, (row_indices, col_indices)), shape=(num_nodes, num_nodes)
+    )
+
+    # Save compressed sparse matrix
+    sp.save_npz(save_path, sparse_matrix)
+
+    return sparse_matrix
+
+
+# Example usage:
+# sparse_dist_mat = to_sparse_upper_chunked(large_dist_mat, chunk_size=5000, save_path="sparse_dist_mat.npz")
+
+
+def graph_cluster(dist_mat, dist_threshold):
     num_nodes = dist_mat.shape[0]
     graph = {i: set() for i in range(num_nodes)}
 
-    for i in range(num_nodes - 1): 
-        for j in range(i + 1, num_nodes):  
+    for i in range(num_nodes - 1):
+        for j in range(i + 1, num_nodes):
             if dist_mat[i, j] < dist_threshold:
                 graph[i].add(j)
-                graph[j].add(i)  
-
+                graph[j].add(i)
 
     clusters = []
     visited = set()
 
     def bfs(start_node):
-        """ Traverse a cluster using BFS """
+        """Traverse a cluster using BFS"""
         queue = [start_node]
         cluster = []
-        
+
         while queue:
             node = queue.pop(0)
             if node in visited:
                 continue
             visited.add(node)
             cluster.append(node)
-            queue.extend(graph[node])  
+            queue.extend(graph[node])
 
         return cluster
 
@@ -38,119 +149,5 @@ def cluster(dist_mat, dist_threshold):
         if node not in visited:
             new_cluster = bfs(node)
             clusters.append(new_cluster)
-    
-    return clusters
-
-def get_loaded_clusters(words):
-
-    clusters_dict = {}
-    for w in words:
-        if w.cluster_id in clusters_dict:
-            clusters_dict[w.cluster_id].extend([w])
-        else:
-            clusters_dict[w.cluster_id] = [w]
-    
-    clusters = []
-    for id in clusters_dict:
-        clusters.append(clusters_dict[id])
 
     return clusters
-
-def get_word_clusters(int_clusters, words):
-
-    word_clusters = []
-    for i, clust in tqdm(enumerate(int_clusters), total=len(int_clusters), desc="Getting Word Clusters"):
-        words_ = []
-        for k in range(len(clust)):
-            word_list = [w for w in words if w.id == clust[k]]
-            word = word_list[0]
-            word.add_cluster_id(id=i)
-            words_.append(word)
-        word_clusters.append(words_)
-    
-    return word_clusters
-
-def get_cluster_centroids(word_clusters):
-    centroids = []
-
-    for i, clust in tqdm(enumerate(word_clusters), total=len(word_clusters), desc="Calculating Cluster Centroids"):
-        units_stack = [word.clean_encoding for word in clust]
-        max_len = max([len(units) for units in units_stack])
-        padded_units_stack = [
-            np.pad(units, (0, max_len - len(units)), mode='constant', constant_values=0)
-            for units in units_stack
-        ]
-        centroid_encoding = np.mean(padded_units_stack, axis=0)
-        dist = [editdistance.eval(centroid_encoding, clust[j].clean_encoding) for j in range(len(clust))]
-        closest_word = clust[np.argmin(dist)]
-        centroids.append(closest_word)
-    
-    return centroids
-
-def get_distance_to_centroids(word_clusters, centroids):
-    words = []
-    
-    for clust in tqdm(word_clusters, desc="Get Distances to Centroids"):
-        for word in clust:
-            distances_to_centroids = [
-                editdistance.eval(word.clean_encoding, centroids[i].clean_encoding) 
-                for i in range(len(centroids))
-            ]
-            word.add_cluster_id(id=np.argmin(distances_to_centroids))
-            words.append(word)
-    return words
-
-def recalculate_clusters(words):
-    clusters = []
-    for i in range(max([word.cluster_id for word in words])+1):
-        words_in_i = [word for word in words if word.cluster_id == i]
-        clusters.append(words_in_i)
-
-    return clusters
-
-def get_best_clusters(word_clusters, current_ned, max_iter=10, tolerance=1e-5):
-    _, duplicate_counts = calculate_duplicate_clusters(word_clusters, print_clusters=False)
-    
-    best_clusters = word_clusters
-    best_ned = current_ned
-    best_duplicate_count = duplicate_counts
-    
-    i = 0
-    print(f"Iteration {i}: NED: {current_ned:.6f}, Duplicates: {duplicate_counts}")
-    while i < max_iter:
-        centroids = get_cluster_centroids(word_clusters)
-        words = get_distance_to_centroids(word_clusters, centroids)
-
-        word_clusters = recalculate_clusters(words)
-        _, duplicate_counts = calculate_duplicate_clusters(word_clusters, print_clusters=False)
-        current_ned = ned(word_clusters, print_inpure=False)
-
-        i += 1
-        print(f"Iteration {i}: NED: {current_ned:.6f}")
-
-        is_ned_improvement = current_ned < best_ned - tolerance
-        is_duplicate_improvement = duplicate_counts < best_duplicate_count - 0
-
-        if is_ned_improvement or is_duplicate_improvement:
-            best_clusters = word_clusters
-            best_ned = current_ned
-            best_duplicate_count = duplicate_counts
-        else:
-            print("Converged early due to no significant improvement in NED or duplicate count.")
-            break
-
-    print(f"Best NED: {best_ned:.6f}, Best Duplicates: {best_duplicate_count}")
-    return best_ned, best_duplicate_count, best_clusters
-
-def save_cluster_centroids(centroids, dir):
-    out_path = Path(dir) / "words.csv"
-    centroid_df = pd.DataFrame(columns=["id", "text", "units"])
-    for c in range(len(centroids)):
-        
-        new_row = pd.DataFrame(
-            [[c, centroids[c].true_word, centroids[c].clean_encoding]],
-            columns=centroid_df.columns,
-        )
-        centroid_df = pd.concat([centroid_df, new_row], ignore_index=True)
-    centroid_df.to_csv(out_path, index=False)
-    print(f"Wrote centroids to {out_path}")

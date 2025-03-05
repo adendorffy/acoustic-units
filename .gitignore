@@ -1,5 +1,2 @@
-data/*
-**/__pycache__/
 .env/
-features/
-output/
+data/
