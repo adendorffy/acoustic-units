@@ -21,20 +21,14 @@ def get_true_words(info_df: pd.DataFrame, align_df: pd.DataFrame):
     Returns:
         List[str]: List of corresponding words or "_" if no match is found.
     """
-    # Split 'filename' into separate 'filename' and 'word_id' columns
-    split_cols = info_df["filename"].str.split("_", expand=True)
-    info_df[["filename", "word_id"]] = split_cols
-    info_df["word_id"] = info_df["word_id"].astype(
-        int
-    )  # Convert word_id to int for merging
-
-    # Merge info_df with align_df on 'filename' and 'word_id'
+    if "word_id" not in info_df:
+        split_cols = info_df["filename"].str.split("_", expand=True)
+        info_df[["filename", "word_id"]] = split_cols
+        info_df["word_id"] = info_df["word_id"].astype(int)
     merged_df = info_df.merge(align_df, on=["filename", "word_id"], how="left")
 
-    # Fill missing text values with "_"
     merged_df["text"] = merged_df["text"].fillna("_")
-
-    return merged_df["text"].tolist()  # Return as a list
+    return merged_df["text"].tolist()
 
 
 def convert_to_word_clusters(int_clusters, text_arr):
@@ -114,3 +108,14 @@ def print_clusters(word_clusters, print_pure=False, print_inpure=True):
                 words = [j for j in clust]
                 print(", ".join(words))
                 print()
+
+
+def get_sim_mat(dist_mat):
+    dist_mat = dist_mat.tocsr()
+
+    # Convert distances to similarities for nonzero elements
+    max_dist = dist_mat.data.max()
+    similarity_matrix = dist_mat.copy()
+    similarity_matrix.data = max_dist - similarity_matrix.data
+
+    return similarity_matrix

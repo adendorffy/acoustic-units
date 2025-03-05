@@ -104,7 +104,6 @@ def process_chunks_sparse(
     """
     dist_mat_out_path.parent.mkdir(parents=True, exist_ok=True)
 
-    # Load feature files
     file_map = {}
     features = []
     for i, feature in enumerate(feat_dir.rglob("**/*.npy")):
@@ -113,7 +112,6 @@ def process_chunks_sparse(
 
     sample_size = len(features)
 
-    # Prepare lists to store sparse matrix elements
     row_indices: List[int] = []
     col_indices: List[int] = []
     values: List[float] = []
@@ -121,7 +119,6 @@ def process_chunks_sparse(
     num_pairs = sample_size * (sample_size - 1) // 2
     num_chunks = (num_pairs + chunk_limit - 1) // chunk_limit
 
-    # Process pairwise distances in chunks
     for chunk in tqdm(
         get_batch_of_paths(sample_size, chunk_limit=chunk_limit),
         total=num_chunks,
@@ -132,21 +129,17 @@ def process_chunks_sparse(
         with Pool(7) as pool:
             chunk_results = pool.map(calculate_distance_per_chunk_pair, chunk_units)
 
-        # Store results in sparse format
         for i, j, dist in chunk_results:
             row_indices.append(i)
             col_indices.append(j)
             values.append(dist)
 
-    # Create a sparse COO matrix
     dist_sparse = sp.coo_matrix(
         (values, (row_indices, col_indices)), shape=(sample_size, sample_size)
     )
 
-    # Save the sparse matrix
     sp.save_npz(dist_mat_out_path, dist_sparse)
 
-    # Save mapping of indices to filenames
     info_to_csv(info_csv_path, file_map)
 
 
