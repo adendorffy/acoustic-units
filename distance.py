@@ -123,6 +123,7 @@ def process_chunks_sparse(
         get_batch_of_paths(sample_size, chunk_limit=chunk_limit),
         total=num_chunks,
         desc="Processing Chunks",
+        unit="chunk",
     ):
         chunk_units = [{(i, j): (features[i], features[j])} for i, j in chunk]
 
