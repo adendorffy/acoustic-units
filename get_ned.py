@@ -71,7 +71,7 @@ class SparseHierarchicalClustering:
                 self.update_distance_queue(
                     priority_queue, sparse_dist_matrix, clusters, c1, c2
                 )
-                pbar.update(1)
+                pbar.update
 
         self.labels_ = self.assign_labels(clusters, n)
         return self

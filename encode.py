@@ -16,7 +16,7 @@ def sample_files(audio_dir=None, audio_ext=None, feature_dir=None, sample_size=1
     if audio_dir and audio_ext:
         paths = list(audio_dir.rglob(f"**/*{audio_ext}"))
     elif feature_dir:
-        paths = list(audio_dir.rglob("**/*.npy"))
+        paths = list(feature_dir.rglob("*/*.npy"))
 
     if sample_size < len(paths) and sample_size > 0:
         paths = random.sample(paths, sample_size)
