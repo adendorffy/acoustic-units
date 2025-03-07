@@ -1,0 +1,94 @@
+Timer unit: 1e-09 s
+
+Total time: 0.854132 s
+File: /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py
+Function: get_features_and_filenames at line 38
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    38                                           @profile
+    39                                           def get_features_and_filenames(sorted_paths):
+    40         1          0.0      0.0      0.0      filenames = []
+    41         1          0.0      0.0      0.0      features = []
+    42      3001   15658000.0   5217.6      1.8      for path in tqdm(sorted_paths, desc="Appending Features"):
+    43      3000    6394000.0   2131.3      0.7          filenames.append(path.stem)
+    44      3000  831725000.0 277241.7     97.4          feature = np.load(path)
+    45      3000     355000.0    118.3      0.0          features.append(feature)
+    46         1          0.0      0.0      0.0      return features, filenames
+
+Total time: 5.73236 s
+File: /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py
+Function: cal_dist_per_pair at line 11
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    11                                           @profile
+    12                                           def cal_dist_per_pair(pair):
+    13                                               """
+    14                                               Calculates the normalized edit distance for a given pair of feature sequences.
+    15                                           
+    16                                               Args:
+    17                                                   chunk_pair (dict): Dictionary with a single key-value pair where:
+    18                                                       - Key: Tuple (i, j) representing the indices of the feature pair.
+    19                                                       - Value: Tuple (feature_i, feature_j) containing the feature sequences.
+    20                                           
+    21                                               Returns:
+    22                                                   tuple: (index_i, index_j, normalized edit distance).
+    23                                               """
+    24   4498500  365777000.0     81.3      6.4      (id_1, id_2), (feature_1, feature_2) = pair
+    25                                           
+    26   4498500  970899000.0    215.8     16.9      max_length = max(len(feature_1), len(feature_2))
+    27   4498500  912479000.0    202.8     15.9      min_length = min(len(feature_1), len(feature_2))
+    28                                           
+    29   4498500  441565000.0     98.2      7.7      if min_length == 0:
+    30   1984097  395516000.0    199.3      6.9          return id_1, id_2, 1.0  # Max distance when one feature is empty
+    31                                           
+    32   2514403  182581000.0     72.6      3.2      dist = (
+    33   2514403 1835422000.0    730.0     32.0          editdistance.eval(feature_1, feature_2) / max_length if max_length > 0 else 1.0
+    34                                               )
+    35   2514403  628122000.0    249.8     11.0      return id_1, id_2, dist
+
+Total time: 40.927 s
+File: /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py
+Function: main at line 49
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    49                                           @profile
+    50                                           def main():
+    51                                               # Process chunks
+    52         1          0.0      0.0      0.0      gamma = 0.1
+    53         1  582536000.0    6e+08      1.4      paths = list(Path(f"features/{gamma}").rglob("*.npy"))
+    54                                           
+    55         1   89358000.0    9e+07      0.2      sorted_paths = sorted(paths, key=lambda x: int(x.stem.split("_")[-1]))
+    56         1     357000.0 357000.0      0.0      sorted_paths = sorted_paths[0:3000]
+    57         1       1000.0   1000.0      0.0      sample_size = len(sorted_paths)
+    58                                           
+    59         1  855948000.0    9e+08      2.1      features, filenames = get_features_and_filenames(sorted_paths)
+    60                                           
+    61         1          0.0      0.0      0.0      chunk_limit = 5000000
+    62         1       2000.0   2000.0      0.0      num_pairs = sample_size * (sample_size - 1) // 2
+    63         1          0.0      0.0      0.0      num_chunks = (num_pairs + chunk_limit - 1) // chunk_limit
+    64                                           
+    65         1       9000.0   9000.0      0.0      print(f"num_pairs: {num_pairs}")
+    66         1       3000.0   3000.0      0.0      print(f"num_chunks: {num_chunks}")
+    67         1       2000.0   2000.0      0.0      print(f"num_samples: {sample_size}")
+    68                                           
+    69                                               # Preallocate sparse matrix in LIL format (efficient for incremental additions)
+    70         1     748000.0 748000.0      0.0      dist_sparse = sp.lil_matrix((sample_size, sample_size), dtype=np.float32)
+    71                                           
+    72         1       1000.0   1000.0      0.0      pairs = pair_generator(sample_size)
+    73   4498502 3748692000.0    833.3      9.2      for i, j in tqdm(
+    74         1       1000.0   1000.0      0.0          pairs, total=num_pairs, desc="Calculating Disatances", unit="Pair"
+    75                                               ):
+    76   4498500        1e+10   3207.9     35.3          i, j, dist = cal_dist_per_pair(((i, j), (features[i], features[j])))
+    77   4498500 9037676000.0   2009.0     22.1          dist_sparse[i, j] = dist  # Fill the sparse matrix
+    78   4498500        1e+10   2387.3     26.2          dist_sparse[j, i] = dist  # Symmetric distance
+    79                                           
+    80                                               # Convert to a compressed sparse format for efficient storage
+    81         1  430698000.0    4e+08      1.1      dist_sparse = dist_sparse.tocoo()
+    82         1 1011044000.0    1e+09      2.5      np.savez_compressed("output/test/sparse_dist_mat.npz", dist_sparse)
+
+  0.85 seconds - /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py:38 - get_features_and_filenames
+  5.73 seconds - /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py:11 - cal_dist_per_pair
+ 40.93 seconds - /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py:49 - main

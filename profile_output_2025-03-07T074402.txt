@@ -1,0 +1,66 @@
+Timer unit: 1e-09 s
+
+Total time: 17.2356 s
+File: /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py
+Function: get_features_and_filenames at line 38
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    38                                           @profile
+    39                                           def get_features_and_filenames(sorted_paths):
+    40         1       1000.0   1000.0      0.0      filenames = []
+    41         1          0.0      0.0      0.0      features = []
+    42     63138   89222000.0   1413.1      0.5      for path in tqdm(sorted_paths, desc="Appending Features"):
+    43     63137  106286000.0   1683.4      0.6          filenames.append(path.stem)
+    44     63137        2e+10 269772.5     98.8          feature = np.load(path)
+    45     63137    7440000.0    117.8      0.0          features.append(feature)
+    46         1          0.0      0.0      0.0      return features, filenames
+
+Total time: 46.9924 s
+File: /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py
+Function: main at line 49
+
+Line #      Hits         Time  Per Hit   % Time  Line Contents
+==============================================================
+    49                                           @profile
+    50                                           def main():
+    51                                               # Process chunks
+    52         1          0.0      0.0      0.0      gamma = 0.1
+    53         1 1261717000.0    1e+09      2.7      paths = list(Path(f"features/{gamma}").rglob("*.npy"))
+    54                                           
+    55         1   86030000.0    9e+07      0.2      sorted_paths = sorted(paths, key=lambda x: int(x.stem.split("_")[-1]))
+    56         1          0.0      0.0      0.0      sample_size = len(sorted_paths)
+    57                                           
+    58         1        2e+10    2e+10     36.8      features, filenames = get_features_and_filenames(sorted_paths)
+    59                                           
+    60         1       2000.0   2000.0      0.0      num_pairs = sample_size * (sample_size - 1) // 2
+    61                                           
+    62         1       8000.0   8000.0      0.0      print(f"num_pairs: {num_pairs}")
+    63         1       2000.0   2000.0      0.0      print(f"num_samples: {sample_size}")
+    64                                           
+    65                                               # Preallocate sparse matrix in LIL format (efficient for incremental additions)
+    66         1   37938000.0    4e+07      0.1      dist_sparse = sp.lil_matrix((sample_size, sample_size), dtype=np.float32)
+    67                                           
+    68         1       5000.0   5000.0      0.0      pairs = pair_generator(sample_size)
+    69                                               # Use multiprocessing to parallelize calculations
+    70         2   28740000.0    1e+07      0.1      with Pool(6) as pool:  # Adjust number of workers based on your CPU
+    71         1       1000.0   1000.0      0.0          results = list(
+    72         1       1000.0   1000.0      0.0              tqdm(
+    73         1       1000.0   1000.0      0.0                  pool.imap_unordered(
+    74         1       1000.0   1000.0      0.0                      cal_dist_per_pair,
+    75  19290121        3e+10   1467.3     60.2                      [((i, j), (features[i], features[j])) for i, j in pairs],
+    76                                                           ),
+    77                                                           total=num_pairs,
+    78                                                           desc="Calculating Distances",
+    79                                                           unit="Pair",
+    80                                                       )
+    81                                                   )
+    82                                           
+    83                                               # Process results
+    84                                               for i, j, dist in results:
+    85                                                   dist_sparse[i, j] = dist  # Fill sparse matrix
+    86                                                   dist_sparse[j, i] = dist  # Ensure symmetry
+    87                                               np.savez_compressed(f"output/{gamma}/sparse_dist_mat.npz", dist_sparse)
+
+ 17.24 seconds - /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py:38 - get_features_and_filenames
+ 46.99 seconds - /Users/daneladendorff/Desktop/adendorffy/acoustic-units/dist.py:49 - main

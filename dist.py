@@ -1,5 +1,5 @@
 from pathlib import Path
-from distance import get_batch_of_paths
+from distance import get_batch_of_paths, pair_generator
 from tqdm import tqdm
 import scipy.sparse as sp
 import editdistance
@@ -53,40 +53,29 @@ def main():
     paths = list(Path(f"features/{gamma}").rglob("*.npy"))
 
     sorted_paths = sorted(paths, key=lambda x: int(x.stem.split("_")[-1]))
-    sorted_paths = sorted_paths[0:3000]
     sample_size = len(sorted_paths)
 
     features, filenames = get_features_and_filenames(sorted_paths)
 
-    chunk_limit = 5000000
     num_pairs = sample_size * (sample_size - 1) // 2
-    num_chunks = (num_pairs + chunk_limit - 1) // chunk_limit
 
     print(f"num_pairs: {num_pairs}")
-    print(f"num_chunks: {num_chunks}")
     print(f"num_samples: {sample_size}")
 
     # Preallocate sparse matrix in LIL format (efficient for incremental additions)
     dist_sparse = sp.lil_matrix((sample_size, sample_size), dtype=np.float32)
 
-    # Process Chunks Efficiently
-    for chunk in tqdm(
-        get_batch_of_paths(sample_size, chunk_limit=chunk_limit),
-        total=num_chunks,
-        desc="Processing Chunks",
-        unit="chunk",
+    pairs = pair_generator(sample_size)
+    for i, j in tqdm(
+        pairs, total=num_pairs, desc="Calculating Disatances", unit="Pair"
     ):
-        # Avoid unnecessary dictionary wrapping
-        chunk_units = [((i, j), (features[i], features[j])) for i, j in chunk]
-
-        with Pool(6) as pool:
-            for i, j, dist in pool.imap_unordered(cal_dist_per_pair, chunk_units):
-                dist_sparse[i, j] = dist  # Fill the sparse matrix
-                dist_sparse[j, i] = dist  # Symmetric distance
+        i, j, dist = cal_dist_per_pair(((i, j), (features[i], features[j])))
+        dist_sparse[i, j] = dist  # Fill the sparse matrix
+        dist_sparse[j, i] = dist  # Symmetric distance
 
     # Convert to a compressed sparse format for efficient storage
     dist_sparse = dist_sparse.tocoo()
-    np.savez_compressed("output/test/sparse_dist_mat.npz", dist_sparse)
+    np.savez_compressed(f"output/{gamma}/sparse_dist_mat.npz", dist_sparse)
 
 
 if __name__ == "__main__":
