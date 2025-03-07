@@ -8,12 +8,15 @@ from multiprocessing import Pool
 import scipy.sparse as sp
 
 
-def pair_generator(num_paths: int) -> Generator[Tuple[int, int], None, None]:
+def pair_generator(
+    num_paths: int, start: int = 0
+) -> Generator[Tuple[int, int], None, None]:
     """
     Generator function that yields all unique index pairs (i, j)
     where i < j. This ensures each pair is processed only once.
     """
-    for i in range(num_paths):
+
+    for i in range(start, num_paths):
         for j in range(i + 1, num_paths):
             yield i, j
 

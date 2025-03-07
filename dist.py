@@ -1,10 +1,10 @@
 from pathlib import Path
-from distance import get_batch_of_paths, pair_generator
+from distance import pair_generator, get_batch_of_paths
 from tqdm import tqdm
 import scipy.sparse as sp
 import editdistance
 import numpy as np
-from multiprocessing import Pool
+import pandas as pd
 from line_profiler import profile
 
 
@@ -57,25 +57,39 @@ def main():
 
     features, filenames = get_features_and_filenames(sorted_paths)
 
+    start_i = 0
+    rows = []
+    cols = []
+    vals = []
+
+    print(f"Start i: {start_i}")
+
     num_pairs = sample_size * (sample_size - 1) // 2
+    chunk_limit = 10000
+    num_batches = (num_pairs + chunk_limit - 1) // chunk_limit
 
-    print(f"num_pairs: {num_pairs}")
     print(f"num_samples: {sample_size}")
+    print(f"num_pairs: {num_pairs}")
 
-    # Preallocate sparse matrix in LIL format (efficient for incremental additions)
-    dist_sparse = sp.lil_matrix((sample_size, sample_size), dtype=np.float32)
-
-    pairs = pair_generator(sample_size)
-    for i, j in tqdm(
-        pairs, total=num_pairs, desc="Calculating Disatances", unit="Pair"
+    for batch in tqdm(
+        get_batch_of_paths(sample_size, chunk_limit),
+        total=num_batches,
+        unit="batch",
+        mininterval=1.0,
+        desc="Processing Batches",
     ):
-        i, j, dist = cal_dist_per_pair(((i, j), (features[i], features[j])))
-        dist_sparse[i, j] = dist  # Fill the sparse matrix
-        dist_sparse[j, i] = dist  # Symmetric distance
+        for i, j in batch:
+            i, j, dist = cal_dist_per_pair(((i, j), (features[i], features[j])))
+            rows.append(i)
+            cols.append(j)
+            vals.append(dist)
 
     # Convert to a compressed sparse format for efficient storage
-    dist_sparse = dist_sparse.tocoo()
-    np.savez_compressed(f"output/{gamma}/sparse_dist_mat.npz", dist_sparse)
+    if rows and cols and vals:
+        dist_sparse = sp.coo_matrix(
+            (vals, (rows, cols)), shape=(sample_size, sample_size)
+        )
+        sp.save_npz(f"output/{gamma}/sparse_dist_mat.npz", dist_sparse)
 
 
 if __name__ == "__main__":
