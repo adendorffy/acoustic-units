@@ -46,7 +46,7 @@ def cal_dist_per_pair(pair):
 
 def main():
     # Process chunks
-    gamma = 0.1
+    gamma = 0.2
     paths = (p for p in Path(f"features/{gamma}").rglob("*.npy"))
 
     sorted_paths = sorted(paths, key=lambda x: int(x.stem.split("_")[-1]))
@@ -77,31 +77,12 @@ def main():
             cols.append(j)
             vals.append(dist)
 
-        np.save(f"output/{gamma}/temp_rows_{chunk_idx}.npy", rows)
-        np.save(f"output/{gamma}/temp_cols_{chunk_idx}.npy", cols)
-        np.save(f"output/{gamma}/temp_vals_{chunk_idx}.npy", vals)
+        np.save(f"output/{gamma}/temp/temp_rows_{chunk_idx}.npy", rows)
+        np.save(f"output/{gamma}/temp/temp_cols_{chunk_idx}.npy", cols)
+        np.save(f"output/{gamma}/temp/temp_vals_{chunk_idx}.npy", vals)
 
         rows, cols, vals = [], [], []
         chunk_idx += 1  # Increment chunk index
-
-    # all_rows, all_cols, all_vals = [], [], []
-    # for i in range(chunk_idx):
-    #     all_rows.append(np.load(f"output/{gamma}/temp_rows_{i}.npy"))
-    #     all_cols.append(np.load(f"output/{gamma}/temp_cols_{i}.npy"))
-    #     all_vals.append(np.load(f"output/{gamma}/temp_vals_{i}.npy"))
-
-    # # Merge into single NumPy arrays
-    # rows = np.concatenate(all_rows)
-    # cols = np.concatenate(all_cols)
-    # vals = np.concatenate(all_vals)
-
-    # # Convert to a compressed sparse format for efficient storage
-    # print("Saving sparse matrix...")
-    # if rows and cols and vals:
-    #     dist_sparse = sp.coo_matrix(
-    #         (vals, (rows, cols)), shape=(sample_size, sample_size)
-    #     )
-    #     sp.save_npz(f"output/{gamma}/sparse_dist_mat.npz", dist_sparse)
 
 
 if __name__ == "__main__":
