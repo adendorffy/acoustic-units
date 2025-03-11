@@ -8,6 +8,7 @@ from collections import defaultdict
 import itertools
 import statistics
 import editdistance
+import argparse
 
 
 def distance(p, q):
@@ -76,15 +77,15 @@ def concat_temp_files(temp_dir, save_dir, total_chunks):
 
 
 def get_texts(gamma, align_dir):
-    paths = (p for p in Path(f"features/{gamma}").rglob("*.npy"))
+    paths = (p for p in Path(f"features/{gamma}").rglob("**/*.npy"))
     align_df = pd.read_csv(align_dir / "alignments.csv")
     sorted_paths = sorted(paths, key=lambda x: int(x.stem.split("_")[-1]))
-
     texts = []
     for path in tqdm(sorted_paths, desc="Appending Text"):
         filename_parts = path.stem.split("_")
         wav_df = align_df[align_df["filename"] == filename_parts[0]]
         word_df = wav_df[wav_df["word_id"] == int(filename_parts[1])]
+        print(path)
         texts.append(str(word_df["text"].iloc[0]))
 
     return texts
@@ -158,12 +159,9 @@ def print_clusters(cluster_transcriptions):
             print(f"Cluster {cluster_id}: {' | '.join(texts)}\n")
 
 
-def main():
-    gamma = 0.1
-    num_clusters = 13967
-    res = 0.0277
+def main(gamma, num_clusters, res, align_dir):
     temp_dir = Path(f"output/{gamma}/temp")
-    texts = get_texts(gamma, Path("data/alignments/dev-clean/"))
+    texts = get_texts(gamma, align_dir)
 
     g = build_graph_from_temp(temp_dir, 400)
     g.write_pickle(f"output/{gamma}/graph.pkl")
@@ -181,4 +179,17 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Run graph-based clustering on text data."
+    )
+    parser.add_argument("gamma", type=float, help="Gamma value for processing.")
+    parser.add_argument("num_clusters", type=int, help="Target number of clusters.")
+    parser.add_argument(
+        "res", type=float, help="Resolution parameter for Leiden clustering."
+    )
+    parser.add_argument("align_dir", type=Path, help="Path to alignment directory.")
+
+    args = parser.parse_args()
+    main(args.gamma, args.num_clusters, args.res, args.align_dir)
+
+# python eval.py 0.1 13967 0.0277 data/alignments/dev-clean/

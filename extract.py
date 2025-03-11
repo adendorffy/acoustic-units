@@ -1,3 +1,4 @@
+import argparse
 import textgrids
 import pandas as pd
 from tqdm import tqdm
@@ -6,7 +7,7 @@ from pathlib import Path
 
 def extract_alignments(align_dir: Path) -> pd.DataFrame:
     """
-    Extract all the alignment data into a csv with the ground truth boundaries & text for each word.
+    Extract all the alignment data into a CSV with the ground truth boundaries & text for each word.
     """
     textgrid_paths = list(align_dir.rglob("**/*.TextGrid"))
     csv_path = align_dir / "alignments.csv"
@@ -30,3 +31,15 @@ def extract_alignments(align_dir: Path) -> pd.DataFrame:
     alignments_df.to_csv(csv_path, index=False)
     print(f"Wrote alignments to {csv_path}")
     return alignments_df
+
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(
+        description="Extract alignments from TextGrid files."
+    )
+    parser.add_argument(
+        "align_dir", type=Path, help="Path to the directory containing TextGrid files."
+    )
+
+    args = parser.parse_args()
+    extract_alignments(args.align_dir)

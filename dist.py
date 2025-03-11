@@ -2,7 +2,8 @@ from pathlib import Path
 from tqdm import tqdm
 import editdistance
 import numpy as np
-from typing import Generator, List, Tuple, Dict
+from typing import Generator, List, Tuple
+import argparse
 
 
 def pair_generator(
@@ -80,9 +81,8 @@ def cal_dist_per_pair(pair):
     return id_1, id_2, 0
 
 
-def main():
+def main(gamma, chunk_limit):
     # Process chunks
-    gamma = 0.2
     paths = (p for p in Path(f"features/{gamma}").rglob("**/*.npy"))
 
     sorted_paths = sorted(paths, key=lambda x: int(x.stem.split("_")[-1]))
@@ -93,7 +93,6 @@ def main():
     rows, cols, vals = [], [], []
 
     num_pairs = sample_size * (sample_size - 1) // 2
-    chunk_limit = 5000000
     num_batches = (num_pairs + chunk_limit - 1) // chunk_limit
 
     print(f"num_samples: {sample_size}")
@@ -125,4 +124,20 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Process feature distances and save results in chunks."
+    )
+    parser.add_argument(
+        "gamma", type=float, help="Gamma value used for feature extraction."
+    )
+    parser.add_argument(
+        "--chunk_limit",
+        type=int,
+        default=5000000,
+        help="Chunk size limit for batch processing.",
+    )
+
+    args = parser.parse_args()
+    main(args.gamma, args.chunk_limit)
+
+# python dist.py 0.2 --chunk_limit 1000000

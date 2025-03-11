@@ -7,6 +7,7 @@ from tqdm import tqdm
 import torchaudio
 from pathlib import Path
 import pandas as pd
+import argparse
 
 
 def sample_files(audio_dir=None, audio_ext=None, feature_dir=None, sample_size=100):
@@ -106,29 +107,58 @@ def get_units(paths, align_df, wav_dir, gamma, layer, save_dir):
                     clean_encoding.numpy(), kmeans.cluster_centers_, gamma
                 )
 
-            save_path = save_dir / str(gamma) / path.relative_to(wav_dir) / f"_{w}.npy"
+            save_path = (
+                save_dir
+                / str(gamma)
+                / path.relative_to(wav_dir)
+                / f"{path.stem}_{w}.npy"
+            )
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
             np.save(save_path, codes)
 
 
-def main():
-    gamma = 0.1
-    layer = 7
-    audio_dir = Path("data/dev-clean")
-    audio_ext = ".flac"
-    align_path = Path("data/alignments/dev-clean/alignments.csv")
+def main(gamma, layer, audio_dir, align_path, save_dir, audio_ext):
     align_df = pd.read_csv(align_path)
-
-    save_dir = Path("features/")
 
     paths, sample_size = sample_files(
         audio_dir=audio_dir, audio_ext=audio_ext, sample_size=-1
     )
 
-    print(f"sample_size: {sample_size}")
+    print(f"Sample size: {sample_size}")
     get_units(paths, align_df, audio_dir, gamma, layer, save_dir)
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser(
+        description="Process audio files and extract units."
+    )
+    parser.add_argument(
+        "gamma", type=float, help="Gamma value used for feature extraction."
+    )
+    parser.add_argument("layer", type=int, help="Layer number for processing.")
+    parser.add_argument(
+        "audio_dir", type=Path, help="Path to directory containing audio files."
+    )
+    parser.add_argument("align_path", type=Path, help="Path to alignment CSV file.")
+    parser.add_argument(
+        "save_dir", type=Path, help="Directory to save extracted features."
+    )
+    parser.add_argument(
+        "--audio_ext",
+        type=str,
+        default=".flac",
+        help="Audio file extension (default: .flac)",
+    )
+
+    args = parser.parse_args()
+    main(
+        args.gamma,
+        args.layer,
+        args.audio_dir,
+        args.align_path,
+        args.save_dir,
+        args.audio_ext,
+    )
+
+# python encode.py 0.1 7 data/dev-clean data/alignments/dev-clean/alignments.csv features/
