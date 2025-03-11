@@ -19,7 +19,7 @@ def pair_generator(
 
 
 def get_batch_of_paths(
-    num_paths: int, chunk_limit: int = 100
+    num_paths: int, chunk_limit: int = 5000000
 ) -> Generator[List[Tuple[int, int]], None, None]:
     """
     Creates and yields chunks of index pairs for processing.
@@ -99,6 +99,9 @@ def main():
     print(f"num_samples: {sample_size}")
     print(f"num_pairs: {num_pairs}")
 
+    out_dir = Path(f"output/{gamma}/temp/")
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     chunk_idx = 0
     for batch in tqdm(
         get_batch_of_paths(sample_size, chunk_limit),
@@ -113,9 +116,9 @@ def main():
             cols.append(j)
             vals.append(dist)
 
-        np.save(f"output/{gamma}/temp/temp_rows_{chunk_idx}.npy", rows)
-        np.save(f"output/{gamma}/temp/temp_cols_{chunk_idx}.npy", cols)
-        np.save(f"output/{gamma}/temp/temp_vals_{chunk_idx}.npy", vals)
+        np.save(out_dir / f"temp_rows_{chunk_idx}.npy", rows)
+        np.save(out_dir / f"temp_cols_{chunk_idx}.npy", cols)
+        np.save(out_dir / f"temp_vals_{chunk_idx}.npy", vals)
 
         rows, cols, vals = [], [], []
         chunk_idx += 1
