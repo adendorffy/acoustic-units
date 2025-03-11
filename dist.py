@@ -1,7 +1,6 @@
 from pathlib import Path
 from distance import get_batch_of_paths
 from tqdm import tqdm
-import scipy.sparse as sp
 import editdistance
 import numpy as np
 

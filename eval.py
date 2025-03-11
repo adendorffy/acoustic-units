@@ -1,121 +1,107 @@
-import editdistance
-import itertools
-import statistics
+from pathlib import Path
 from tqdm import tqdm
-import matplotlib.pyplot as plt
-from scipy.cluster.hierarchy import linkage, leaves_list
-from scipy.spatial.distance import squareform
-import seaborn as sns
-import pandas as pd
-from scipy.sparse import issparse
+import numpy as np
+import igraph as ig
+import leidenalg as la
 
 
-def get_true_words(info_df: pd.DataFrame, align_df: pd.DataFrame):
-    """
-    Efficiently extracts corresponding words from `align_df` based on `info_df` filenames.
-
-    Args:
-        info_df (pd.DataFrame): DataFrame containing `filename` column with "file_wordID".
-        align_df (pd.DataFrame): DataFrame containing `filename`, `word_id`, and `text`.
-
-    Returns:
-        List[str]: List of corresponding words or "_" if no match is found.
-    """
-    if "word_id" not in info_df:
-        split_cols = info_df["filename"].str.split("_", expand=True)
-        info_df[["filename", "word_id"]] = split_cols
-        info_df["word_id"] = info_df["word_id"].astype(int)
-    merged_df = info_df.merge(align_df, on=["filename", "word_id"], how="left")
-
-    merged_df["text"] = merged_df["text"].fillna("_")
-    return merged_df["text"].tolist()
+def get_total_size(temp_dir, total_chunks):
+    total_size = sum(
+        np.load(temp_dir / f"temp_rows_{i}.npy").shape[0]
+        for i in tqdm(range(total_chunks), desc="Calculating total")
+    )
+    return total_size
 
 
-def convert_to_word_clusters(int_clusters, text_arr):
-    word_clusters = []
-    for cluster in int_clusters:
-        words = []
-        for i in cluster:
-            words.append(text_arr[i])
-        word_clusters.append(words)
-    return word_clusters
+def concat_temp_files(temp_dir, save_dir, total_chunks):
+    rows, cols, vals = [], [], []
+    elements = ["rows", "cols", "vals"]
+
+    first_chunk = np.load(temp_dir / "temp_rows_0.npy")
+    dtype = first_chunk.dtype
+
+    total_size = get_total_size(temp_dir, total_chunks)
+
+    for element in elements:
+        file_path = save_dir / f"{element}.npy"
+        merged_data = np.memmap(file_path, dtype=dtype, mode="w+", shape=(total_size,))
+
+        index = 0
+        for i in tqdm(range(total_chunks), desc=f"Writing {element} to disk"):
+            temp_data = np.load(temp_dir / f"temp_{element}_{i}.npy")
+            merged_data[index : index + temp_data.shape[0]] = temp_data
+
+            index += temp_data.shape[0]
+
+        merged_data.flush()
+        del merged_data
+
+    return rows, cols, vals
 
 
-def ned(word_clusters):
-    distances = []
+def build_graph_from_temp(temp_dir, total_chunks):
+    g = ig.Graph()
 
-    for cluster in tqdm(word_clusters, desc="Calculating NED"):
-        for p, q in itertools.combinations(cluster, 2):
-            dist = editdistance.eval(p, q)
-            distances.append(dist)
+    total_size = get_total_size(temp_dir, total_chunks)
+    sample_size = get_n(total_size)
+    print(f"total_size: {total_size}, sample_size: {sample_size}")
 
-    mean_dist = 0
-    if distances:
-        mean_dist = statistics.mean(distances)
+    g.add_vertices(sample_size)
 
-    return mean_dist
+    for i in tqdm(range(400), desc="Getting Temp Info"):
+        temp_rows = np.load(temp_dir / f"temp_rows_{i}.npy")
+        temp_cols = np.load(temp_dir / f"temp_cols_{i}.npy")
+        temp_vals = np.load(temp_dir / f"temp_vals_{i}.npy")
 
+        mask = temp_vals < 0.4
+        filtered_rows = temp_rows[mask]
+        filtered_cols = temp_cols[mask]
+        filtered_vals = temp_vals[mask]
 
-def pairwise_edit_dist_mat(dist_mat, title, true_words):
-    """
-    Visualizes a pairwise edit distance matrix, adapted for sparse representations.
+        # Convert edges and weights to lists
+        edges = list(zip(map(int, filtered_rows), map(int, filtered_cols)))
+        weights = list(map(float, filtered_vals))
 
-    Parameters:
-    - dist_mat (scipy.sparse or np.ndarray): The pairwise distance matrix (sparse or dense).
-    - title (str): Title for the heatmap.
-    - true_words (list): List of words corresponding to the matrix rows/columns.
+        # Add edges if they exist
+        if edges:
+            g.add_edges(edges)
+            g.es[-len(weights) :]["weight"] = (
+                weights  # Assign weights only to newly added edges
+            )
 
-    Returns:
-    - None (displays heatmap)
-    """
-
-    # Convert sparse matrix to dense if necessary
-    if issparse(dist_mat):
-        dist_mat = dist_mat.toarray()  # Convert to dense NumPy array
-
-    # Convert to condensed form for clustering
-    dist_mat += dist_mat.T
-    condensed_dist_mat = squareform(dist_mat)  # Ensure proper format
-
-    # Create a DataFrame for visualization
-    dist_df_hub = pd.DataFrame(dist_mat, index=true_words, columns=true_words)
-
-    # Perform hierarchical clustering
-    linked = linkage(condensed_dist_mat, method="average")
-    order = leaves_list(linked)
-
-    # Reorder distance matrix based on clustering
-    reordered_dist_df = dist_df_hub.iloc[order, order]
-
-    # Plot the heatmap
-    plt.figure(figsize=(8, 6))
-    sns.heatmap(reordered_dist_df, cmap="viridis", xticklabels=True, yticklabels=True)
-    plt.title(title)
-    plt.show()
+    return g
 
 
-def print_clusters(word_clusters, print_pure=False, print_inpure=True):
-    for i, clust in enumerate(word_clusters):
-        if len(clust) > 1:
-            clust_dist = []
-
-            for p, q in itertools.combinations(clust, 2):
-                dist = editdistance.eval(p, q)
-                clust_dist.append(dist)
-
-            if any(dist > 0 for dist in clust_dist) and print_inpure or print_pure:
-                print(f"Cluster {i}: {statistics.mean(clust_dist)}")
-                words = [j for j in clust]
-                print(", ".join(words))
-                print()
+def get_n(length_list):
+    return int(1 + np.sqrt(1 + 8 * length_list)) // 2
 
 
-def get_sim_mat(dist_mat):
-    dist_mat = dist_mat.tocsr()
+def build_graph(rows, cols, vals, sample_size):
+    g = ig.Graph()
+    g.add_vertices(sample_size)
 
-    # Convert distances to similarities for nonzero elements
-    max_dist = dist_mat.data.max()
-    similarity_matrix = dist_mat.copy()
-    similarity_matrix.data = max_dist - similarity_matrix.data
+    # Create a boolean mask for values < 0.4
+    mask = vals < 0.4
 
-    return similarity_matrix
+    # Directly create edges as tuples (node1, node2, weight)
+    edges_with_weights = np.column_stack((rows[mask], cols[mask], vals[mask]))
+
+    g.add_edges(edges_with_weights[:, :2].tolist())  # Only (row, col) pairs
+    g.es["weight"] = edges_with_weights[:, 2]  # Assign weights separately
+
+    return g
+
+
+def main():
+    gamma = 0.1
+    temp_dir = Path(f"output/{gamma}/temp")
+
+    g = build_graph_from_temp(temp_dir, 400)
+    g.write_pickle(f"output/{gamma}/graph.pkl")
+
+    partition = la.find_partition(g, la.ModularityVertexPartition)
+    print(partition)
+
+
+if __name__ == "__main__":
+    main()
