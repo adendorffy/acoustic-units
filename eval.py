@@ -85,7 +85,6 @@ def get_texts(gamma, align_dir):
         filename_parts = path.stem.split("_")
         wav_df = align_df[align_df["filename"] == filename_parts[0]]
         word_df = wav_df[wav_df["word_id"] == int(filename_parts[1])]
-        print(path)
         texts.append(str(word_df["text"].iloc[0]))
 
     return texts
@@ -163,7 +162,7 @@ def main(gamma, num_clusters, res, align_dir):
     temp_dir = Path(f"output/{gamma}/temp")
     texts = get_texts(gamma, align_dir)
 
-    g = build_graph_from_temp(temp_dir, 400)
+    g = build_graph_from_temp(temp_dir, 399)
     g.write_pickle(f"output/{gamma}/graph.pkl")
 
     partition = la.find_partition(
