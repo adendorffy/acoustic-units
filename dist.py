@@ -1,20 +1,57 @@
 from pathlib import Path
-from distance import get_batch_of_paths
 from tqdm import tqdm
 import editdistance
 import numpy as np
+from typing import Generator, List, Tuple, Dict
 
 
-def get_features_and_filenames(sorted_paths):
-    filenames = []
+def pair_generator(
+    num_paths: int, start: int = 0
+) -> Generator[Tuple[int, int], None, None]:
+    """
+    Generator function that yields all unique index pairs (i, j)
+    where i < j. This ensures each pair is processed only once.
+    """
+
+    for i in range(start, num_paths):
+        for j in range(i + 1, num_paths):
+            yield i, j
+
+
+def get_batch_of_paths(
+    num_paths: int, chunk_limit: int = 100
+) -> Generator[List[Tuple[int, int]], None, None]:
+    """
+    Creates and yields chunks of index pairs for processing.
+
+    Args:
+        num_paths (int): Number of paths (features) to process.
+        chunk_limit (int): Maximum number of pairs in each chunk.
+
+    Yields:
+        List of tuples containing index pairs (i, j).
+    """
+    pairs = pair_generator(num_paths)
+    chunk: List[Tuple[int, int]] = []
+
+    for idx, (i, j) in enumerate(pairs, 1):
+        chunk.append((i, j))
+
+        if idx % chunk_limit == 0:
+            yield chunk
+            chunk = []
+
+    if chunk:
+        yield chunk
+
+
+def get_features(sorted_paths):
     features = []
     for path in tqdm(sorted_paths, desc="Appending Features"):
         feature = np.load(path)
-
-        filenames.append(path.stem)
         features.append(feature)
 
-    return features, filenames
+    return features
 
 
 def cal_dist_per_pair(pair):
@@ -46,12 +83,12 @@ def cal_dist_per_pair(pair):
 def main():
     # Process chunks
     gamma = 0.2
-    paths = (p for p in Path(f"features/{gamma}").rglob("*.npy"))
+    paths = (p for p in Path(f"features/{gamma}").rglob("**/*.npy"))
 
     sorted_paths = sorted(paths, key=lambda x: int(x.stem.split("_")[-1]))
     sample_size = len(sorted_paths)
 
-    features, filenames = get_features_and_filenames(sorted_paths)
+    features = get_features(sorted_paths)
 
     rows, cols, vals = [], [], []
 
@@ -81,7 +118,7 @@ def main():
         np.save(f"output/{gamma}/temp/temp_vals_{chunk_idx}.npy", vals)
 
         rows, cols, vals = [], [], []
-        chunk_idx += 1  # Increment chunk index
+        chunk_idx += 1
 
 
 if __name__ == "__main__":

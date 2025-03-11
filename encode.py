@@ -5,6 +5,8 @@ import torch
 from webrtcvad import Vad
 from tqdm import tqdm
 import torchaudio
+from pathlib import Path
+import pandas as pd
 
 
 def sample_files(audio_dir=None, audio_ext=None, feature_dir=None, sample_size=100):
@@ -108,3 +110,25 @@ def get_units(paths, align_df, wav_dir, gamma, layer, save_dir):
             save_path.parent.mkdir(parents=True, exist_ok=True)
 
             np.save(save_path, codes)
+
+
+def main():
+    gamma = 0.1
+    layer = 7
+    audio_dir = Path("data/dev-clean")
+    audio_ext = ".flac"
+    align_path = Path("data/alignments/dev-clean/alignments.csv")
+    align_df = pd.read_csv(align_path)
+
+    save_dir = Path("features/")
+
+    paths, sample_size = sample_files(
+        audio_dir=audio_dir, audio_ext=audio_ext, sample_size=-1
+    )
+
+    print(f"sample_size: {sample_size}")
+    get_units(paths, align_df, audio_dir, gamma, layer, save_dir)
+
+
+if __name__ == "__main__":
+    main()

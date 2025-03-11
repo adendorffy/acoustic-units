@@ -3,6 +3,42 @@ from tqdm import tqdm
 import numpy as np
 import igraph as ig
 import leidenalg as la
+import pandas as pd
+from collections import defaultdict
+import itertools
+import statistics
+import editdistance
+
+
+def distance(p, q):
+    """Compute normalized edit distance between two strings."""
+    length = max(len(p), len(q))
+    return (
+        editdistance.eval(p, q) / length if length > 0 else 1
+    )  # Avoid division by zero
+
+
+def ned(discovered):
+    """Compute the normalized edit distance (NED) within each cluster."""
+    if not discovered:
+        return 0
+
+    discovered = sorted(discovered, key=lambda x: x[0])
+
+    distances = []
+    for _, group in itertools.groupby(discovered, key=lambda x: x[0]):
+        group_list = list(group)
+
+        if len(group_list) < 2:
+            continue
+
+        for p, q in itertools.combinations(group_list, 2):
+            d = distance(p[1], q[1])
+            distances.append(d)
+
+    return (
+        statistics.mean(distances) if distances else 0
+    )  # Ensure no division by empty list
 
 
 def get_total_size(temp_dir, total_chunks):
@@ -39,16 +75,30 @@ def concat_temp_files(temp_dir, save_dir, total_chunks):
     return rows, cols, vals
 
 
-def build_graph_from_temp(temp_dir, total_chunks):
-    g = ig.Graph()
+def get_texts(gamma, align_dir):
+    paths = (p for p in Path(f"features/{gamma}").rglob("*.npy"))
+    align_df = pd.read_csv(align_dir / "alignments.csv")
+    sorted_paths = sorted(paths, key=lambda x: int(x.stem.split("_")[-1]))
 
+    texts = []
+    for path in tqdm(sorted_paths, desc="Appending Text"):
+        filename_parts = path.stem.split("_")
+        wav_df = align_df[align_df["filename"] == filename_parts[0]]
+        word_df = wav_df[wav_df["word_id"] == int(filename_parts[1])]
+        texts.append(str(word_df["text"].iloc[0]))
+
+    return texts
+
+
+def build_graph_from_temp(temp_dir, total_chunks):
     total_size = get_total_size(temp_dir, total_chunks)
     sample_size = get_n(total_size)
     print(f"total_size: {total_size}, sample_size: {sample_size}")
 
+    g = ig.Graph()
     g.add_vertices(sample_size)
 
-    for i in tqdm(range(400), desc="Getting Temp Info"):
+    for i in tqdm(range(total_chunks), desc="Getting Temp Info"):
         temp_rows = np.load(temp_dir / f"temp_rows_{i}.npy")
         temp_cols = np.load(temp_dir / f"temp_cols_{i}.npy")
         temp_vals = np.load(temp_dir / f"temp_vals_{i}.npy")
@@ -62,12 +112,15 @@ def build_graph_from_temp(temp_dir, total_chunks):
         edges = list(zip(map(int, filtered_rows), map(int, filtered_cols)))
         weights = list(map(float, filtered_vals))
 
+        weights = [w if w > 0 else 1e-10 for w in weights]
+
         # Add edges if they exist
         if edges:
             g.add_edges(edges)
-            g.es[-len(weights) :]["weight"] = (
-                weights  # Assign weights only to newly added edges
-            )
+
+            # Assign weights only to newly added edges
+            if weights:
+                g.es[-len(weights) :].set_attribute_values("weight", weights)
 
     return g
 
@@ -76,31 +129,55 @@ def get_n(length_list):
     return int(1 + np.sqrt(1 + 8 * length_list)) // 2
 
 
-def build_graph(rows, cols, vals, sample_size):
-    g = ig.Graph()
-    g.add_vertices(sample_size)
+def transcribe_clusters(partition, texts):
+    clusters = {i: [] for i in set(partition.membership)}
 
-    # Create a boolean mask for values < 0.4
-    mask = vals < 0.4
+    # Assign nodes to clusters
+    for node, cluster_id in enumerate(partition.membership):
+        clusters[cluster_id].append(node)  # Append node index to the respective cluster
 
-    # Directly create edges as tuples (node1, node2, weight)
-    edges_with_weights = np.column_stack((rows[mask], cols[mask], vals[mask]))
+    cluster_transcriptions = []
+    for cluster_id, words in clusters.items():
+        for w in words:
+            cluster_transcriptions.append((cluster_id, texts[w]))
 
-    g.add_edges(edges_with_weights[:, :2].tolist())  # Only (row, col) pairs
-    g.es["weight"] = edges_with_weights[:, 2]  # Assign weights separately
+    return cluster_transcriptions
 
-    return g
+
+def print_clusters(cluster_transcriptions):
+    # Dictionary to store all text per cluster
+    cluster_texts = defaultdict(list)
+
+    # Group all text by cluster_id
+    for cluster_id, txt in cluster_transcriptions:
+        cluster_texts[cluster_id].append(txt)
+
+    # Print all texts in each cluster
+    for cluster_id, texts in cluster_texts.items():
+        if len(texts) > 1:
+            print(f"Cluster {cluster_id}: {' | '.join(texts)}\n")
 
 
 def main():
     gamma = 0.1
+    num_clusters = 13967
+    res = 0.0277
     temp_dir = Path(f"output/{gamma}/temp")
+    texts = get_texts(gamma, Path("data/alignments/dev-clean/"))
 
     g = build_graph_from_temp(temp_dir, 400)
     g.write_pickle(f"output/{gamma}/graph.pkl")
 
-    partition = la.find_partition(g, la.ModularityVertexPartition)
-    print(partition)
+    partition = la.find_partition(
+        g, la.CPMVertexPartition, weights="weight", resolution_parameter=res
+    )
+    actual_clusters = len(set(partition.membership))
+
+    cluster_transcriptions = transcribe_clusters(partition, texts)
+    # print_clusters(cluster_transcriptions)
+
+    print(f"Cluster difference: {abs(actual_clusters - num_clusters)}")
+    print(f"NED: {ned(cluster_transcriptions)}")
 
 
 if __name__ == "__main__":

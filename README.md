@@ -8,23 +8,25 @@
 
 ## 3. Encode the features (acoustic units) for each word
 - Benji's HuBERT model + DPDP algorithm 
-- Need to vary gamma. At the moment only 0.2 
+- Need to vary gamma. Currently 0.1 amd 0.2.
 
-## 4. Calculate distance matrix
+## 4. Calculate distances
 - Sample `sample_size` amount of words.
-- Generate batch of pairs of `chunk_limit` size.
-- For each batch of pairs:
-    - Load the acoustic units for the pairs into a dict of `(i,j) : (feature_i, feature_j)`.
-    - Calculate the distances between each of the pairs in the batch and store them in the distance matrix of shape `(sample_size, sample_size)`.
-    - Save the filenames and word indices to a csv so that the words associated with the distances can be loaded in for evaluation. 
-    - Save a compressed distance matrix.
+- Generate batch of pairs of `chunk_limit` size (default = 5000000).
+- For each pair in the batch `(i, j)` calculate the edit distance between `features[i]`, `features[j]`.
+- For each batch save the rows, columns and values for that batch as `ouptput/{gamma}/temp/temp_rows_{chunk_idx}.npy` (or cols/vals).
+
 
 ## 5. Clustering
-- Load in the distance matrix and associated words from `info.csv`.
-- Cluster usiing graph-clustering or kmeans-clustering.
-- Covert int clusters to true word clusters. 
+- Get the text for each `word_id` in the dataset by sorting the filepaths and getting the text for the associated index in the `alignments_df`.
+- Initialise the graph with a vertex for each sample point in the dataset.
+- For each chunk of distances:
+    - Read in its `rows`, `cols` and `vals`.
+    - Filter the data points for `vals < 0.4` and edges between the corresponding nodes (`i`, `j`) with the corresponding `weight` (val).
+- Cluster using `leidenalg` package's `find_partition` with `partition_type=la.CPMVertexPartition` and `resolution_parameter=0.0277` (found to correspond closely with `num_clusters=13967` as needed).
 
 ## 6. Evaluation and Visualisation
-- Plot the pairwise edit distance matrix to visualise clusters quickly.
-- Calculate ned across clusters and for each cluster.
-- Print the pure/inpure clusters.
+- Cluster transcriptions can be printed using `transcribe_clusters(partition, texts)` - where `texts` refers to an array with the corresponding text of each `word_id` at that index - and `print_clusters(cluster_transcriptions)`. 
+- NED is calculated using edit distance on the whole dataset with `ned(cluster_transcriptions)`.
+
+Current NED value calculated on `gamma=0.1` = 0.078
