@@ -140,4 +140,4 @@ if __name__ == "__main__":
     args = parser.parse_args()
     main(args.gamma, args.chunk_limit)
 
-# python dist.py 0.2 --chunk_limit 1000000
+# python dist.py 0.2
