@@ -29,4 +29,14 @@
 - Cluster transcriptions can be printed using `transcribe_clusters(partition, texts)` - where `texts` refers to an array with the corresponding text of each `word_id` at that index - and `print_clusters(cluster_transcriptions)`. 
 - NED is calculated using edit distance on the whole dataset with `ned(cluster_transcriptions)`.
 
-Current NED value calculated on `gamma=0.1` is 0.078
+## Gamma, Resolution, and NED Comparisons
+
+The table below shows the comparison of different `gamma` values, their corresponding best `res` values, and the computed `NED`.
+
+| Gamma | Best Resolution (`res`) | NED Value | Cluster Diff |
+|-------|-------------------------|-----------|--------------|
+| 0.1   | 0.020                   | 0.084     | 50           |
+| 0.2   | 0.022                   | 0.086     | 13           |
+| 0.3   | 0.----                  | -----     | --           |
+| 0.4   | 0.----                  | 0.---     | --           |
+| 0.5   | 0.----                  | 0.---     | --           |
