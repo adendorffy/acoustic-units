@@ -1,4 +1,4 @@
-# Edit-Distance Clusters For Building a Lexicon from Acoustic Units
+# Acoustic Lexicon Clustering
 
 ## 1. Download Data
 - Librispeech dev-clean and their alignments (`data/dev-clean` and `data/alignments/dev-clean`)
