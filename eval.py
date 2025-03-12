@@ -61,7 +61,7 @@ def get_phones_and_texts(gamma, align_dir):
     if cache_path.exists():
         df = pd.read_csv(cache_path)
         texts = df["text"].tolist()
-        phones = df["phones"].tolist()
+        phones = df["phones"].apply(lambda x: tuple(x.split(",")))
         print(f"Loaded texts from {cache_path}")
         return phones, texts
 
@@ -79,7 +79,7 @@ def get_phones_and_texts(gamma, align_dir):
         wav_df = align_df[align_df["filename"] == filename_parts[0]]
         word_df = wav_df[wav_df["word_id"] == int(filename_parts[1])]
         texts.append(str(word_df["text"].iloc[0]))
-        phones.append(word_df["phones"].iloc[0])
+        phones.append(word_df["phones"].apply(lambda x: tuple(x.split(","))))
 
     df = pd.DataFrame({"text": texts, "phones": phones})
     df.to_csv(cache_path, index=False)

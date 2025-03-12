@@ -35,6 +35,8 @@ The table below shows the comparison of different `gamma` values, their correspo
 
 | Gamma | Best Resolution (`res`) | NED Value | Cluster Diff |
 |-------|-------------------------|-----------|--------------|
+| 0.10 | 0.0270 | 0.068 | 58 |
+| 0.10 | 0.0270 | 0.068 | 58 |
 | 0.20 | 0.0220 | 0.071 | 13 |
 | 0.20 | 0.0220 | 0.071 | 13 |
 | 0.30 | 0.0300 | 0.075 | 4 |

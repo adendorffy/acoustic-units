@@ -41,11 +41,12 @@ def extract_alignments(align_dir: Path) -> pd.DataFrame:
                         word_start,
                         word_end,
                         word_text,
-                        tuple(word_phones),
+                        ",".join(word_phones),
                     ]
                 ],
                 columns=alignments_df.columns,
             )
+
             alignments_df = pd.concat([alignments_df, new_row], ignore_index=True)
 
     alignments_df.to_csv(csv_path, index=False)
