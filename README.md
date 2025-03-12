@@ -31,7 +31,7 @@
 
 ## Gamma, Resolution, and NED Comparisons
 
-The table below shows the comparison of different `gamma` values, their corresponding best `res` values, and the computed `NED`.
+The table below shows the comparison of different `gamma` values, their corresponding best `res` values, resulting `Cluster Diff`'s, and the computed `NED`.
 
 | Gamma | Best Resolution (`res`) | NED Value | Cluster Diff |
 |-------|-------------------------|-----------|--------------|

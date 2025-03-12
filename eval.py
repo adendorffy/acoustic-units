@@ -100,6 +100,34 @@ def ned(discovered):
     return statistics.mean(distances) if distances else 0
 
 
+def update_readme(gamma, best_res, ned_value, readme_path="README.md"):
+    """
+    Updates the README.md file to include the latest gamma, best resolution, and NED values.
+    """
+    new_entry = f"| {gamma:.2f} | {best_res:.4f} | {ned_value:.3f} |\n"
+
+    # Read the current README content
+    with open(readme_path, "r") as f:
+        lines = f.readlines()
+
+    # Find where to insert the new row (after the header row)
+    for i, line in enumerate(lines):
+        if "| Gamma | Best Resolution" in line:  # Find the table header
+            insert_idx = i + 2  # Skip the header and separator
+            break
+    else:
+        insert_idx = len(lines)  # If no table exists, append at the end
+
+    # Insert the new entry
+    lines.insert(insert_idx, new_entry)
+
+    # Write back to the README
+    with open(readme_path, "w") as f:
+        f.writelines(lines)
+
+    print(f"Updated README.md with gamma={gamma}, res={best_res}, NED={ned_value}")
+
+
 def main(gamma, res, alignment_dir):
     partition = pd.read_csv(f"output/{gamma}/best_partition_r{round(res, 3)}.csv")
     texts = get_texts(gamma, alignment_dir)
