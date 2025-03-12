@@ -166,7 +166,7 @@ def main(gamma, num_clusters, use_preloaded_graph=False):
         print(f"Loaded precomputed graph from {graph_path}")
     else:
         g = build_graph_from_temp(temp_dir, 399)
-        g.write_pickle(str(graph_path), format="pickle")
+        g.write_pickle(str(graph_path))
         print(f"Graph built and saved to {graph_path}")
 
     best_res, best_partition = adaptive_res_search(g, num_clusters)
