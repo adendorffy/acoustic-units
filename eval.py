@@ -30,12 +30,11 @@ def transcribe_clusters_into_phones(df, phones):
     ensuring the node index exists in texts.
     """
 
-    cluster_transcriptions = list(
-        zip(
-            df["cluster"],
-            df["node"].map(lambda x: phones[x]),
-        )
-    )
+    cluster_transcriptions = [
+        (cluster, phones[x])
+        for cluster, x in zip(df["cluster"], df["node"])
+        if phones[x] not in {"sil", "sp"}
+    ]
 
     return cluster_transcriptions
 
@@ -50,8 +49,10 @@ def print_clusters(cluster_transcriptions):
 
     # Print all texts in each cluster
     for cluster_id, texts in cluster_texts.items():
-        if len(texts) > 1:
-            print(f"Cluster {cluster_id}: {' | '.join(texts)}\n")
+        if len(texts) > 10:
+            print(
+                f"Cluster {cluster_id}: {' | '.join([str(text) for text in texts])}\n"
+            )
 
 
 def get_phones_and_texts(gamma, align_dir):
@@ -113,7 +114,7 @@ def ned(clusters):
             d = distance(p[1], q[1])
             distances.append(d)
 
-    return statistics.mean(distances) if distances else 0
+    return statistics.mean(distances)
 
 
 def update_readme(gamma, best_res, ned_value, diff, readme_path="README.md"):
