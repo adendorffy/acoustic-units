@@ -13,7 +13,7 @@ def extract_alignments(align_dir: Path) -> pd.DataFrame:
     csv_path = align_dir / "alignments.csv"
 
     alignments_df = pd.DataFrame(
-        columns=["word_id", "filename", "word_start", "word_end", "text"]
+        columns=["word_id", "filename", "word_start", "word_end", "text", "phones"]
     )
 
     for textgrid_path in tqdm(textgrid_paths, desc="Extracting Alignments"):
@@ -21,9 +21,29 @@ def extract_alignments(align_dir: Path) -> pd.DataFrame:
         filename = textgrid_path.stem
 
         words_tier = grid["words"]
-        for idx, interval in enumerate(words_tier, start=1):
+        phones_tier = grid["phones"]
+
+        for idx, word_interval in enumerate(words_tier, start=1):
+            word_text = word_interval.text.strip()
+
+            word_start, word_end = word_interval.xmin, word_interval.xmax
+            word_phones = [
+                phone_interval.text.strip()
+                for phone_interval in phones_tier
+                if phone_interval.xmax > word_start and phone_interval.xmin < word_end
+            ]
+
             new_row = pd.DataFrame(
-                [[idx - 1, filename, interval.xmin, interval.xmax, interval.text]],
+                [
+                    [
+                        idx - 1,
+                        filename,
+                        word_start,
+                        word_end,
+                        word_text,
+                        tuple(word_phones),
+                    ]
+                ],
                 columns=alignments_df.columns,
             )
             alignments_df = pd.concat([alignments_df, new_row], ignore_index=True)

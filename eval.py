@@ -10,17 +10,31 @@ import argparse
 
 def transcribe_clusters(df, texts):
     """
-    Convert a DataFrame with node-cluster mappings to a list of (cluster_id, text).
-
-    Parameters:
-    - df: Pandas DataFrame with "node" and "cluster" columns
-    - texts: List of text corresponding to each node
-
-    Returns:
-    - List of (cluster_id, text) tuples
+    Convert a DataFrame with node-cluster mappings to a list of (cluster_id, text),
+    ensuring the node index exists in texts.
     """
+
     cluster_transcriptions = list(
-        zip(df["cluster"], df["node"].map(lambda x: texts[x]))
+        zip(
+            df["cluster"],
+            df["node"].map(lambda x: texts[x]),
+        )
+    )
+
+    return cluster_transcriptions
+
+
+def transcribe_clusters_into_phones(df, phones):
+    """
+    Convert a DataFrame with node-cluster mappings to a list of (cluster_id, text),
+    ensuring the node index exists in texts.
+    """
+
+    cluster_transcriptions = list(
+        zip(
+            df["cluster"],
+            df["node"].map(lambda x: phones[x]),
+        )
     )
 
     return cluster_transcriptions
@@ -40,14 +54,15 @@ def print_clusters(cluster_transcriptions):
             print(f"Cluster {cluster_id}: {' | '.join(texts)}\n")
 
 
-def get_texts(gamma, align_dir):
-    cache_path = Path(f"features/{gamma}/texts.csv")
+def get_phones_and_texts(gamma, align_dir):
+    cache_path = Path(f"features/{gamma}/texts_and_phones.csv")
 
     if cache_path.exists():
         df = pd.read_csv(cache_path)
         texts = df["text"].tolist()
+        phones = df["phones"].tolist()
         print(f"Loaded texts from {cache_path}")
-        return texts
+        return phones, texts
 
     paths = sorted(
         Path(f"features/{gamma}").rglob("**/*.npy"),
@@ -56,17 +71,20 @@ def get_texts(gamma, align_dir):
     align_df = pd.read_csv(align_dir / "alignments.csv")
 
     texts = []
-    for path in tqdm(paths, desc="Appending Text"):
+    phones = []
+
+    for path in tqdm(paths, desc="Appending Text and Phones"):
         filename_parts = path.stem.split("_")
         wav_df = align_df[align_df["filename"] == filename_parts[0]]
         word_df = wav_df[wav_df["word_id"] == int(filename_parts[1])]
         texts.append(str(word_df["text"].iloc[0]))
+        phones.append(word_df["phones"].iloc[0])
 
-    df = pd.DataFrame({"text": texts})
+    df = pd.DataFrame({"text": texts, "phones": phones})
     df.to_csv(cache_path, index=False)
     print(f"Saved texts to {cache_path}")
 
-    return texts
+    return phones, texts
 
 
 def distance(p, q):
@@ -77,34 +95,32 @@ def distance(p, q):
     )  # Avoid division by zero
 
 
-def ned(discovered):
+def ned(clusters):
     """Compute the normalized edit distance (NED) within each cluster."""
-    if not discovered:
+    if not clusters:
         return 0
 
-    discovered = sorted(discovered, key=lambda x: x[0])
+    clusters = sorted(clusters, key=lambda x: x[0])
 
     distances = []
-    for _, group in itertools.groupby(discovered, key=lambda x: x[0]):
+    for _, group in itertools.groupby(clusters, key=lambda x: x[0]):
         group_list = list(group)
 
         if len(group_list) < 2:
             continue
 
         for p, q in itertools.combinations(group_list, 2):
-            p_1 = str(p[1])
-            q_1 = str(q[1])
-            d = distance(p_1, q_1)
+            d = distance(p[1], q[1])
             distances.append(d)
 
     return statistics.mean(distances) if distances else 0
 
 
-def update_readme(gamma, best_res, ned_value, readme_path="README.md"):
+def update_readme(gamma, best_res, ned_value, diff, readme_path="README.md"):
     """
     Updates the README.md file to include the latest gamma, best resolution, and NED values.
     """
-    new_entry = f"| {gamma:.2f} | {best_res:.4f} | {ned_value:.3f} |\n"
+    new_entry = f"| {gamma:.2f} | {best_res:.4f} | {ned_value:.3f} | {diff} |\n"
 
     # Read the current README content
     with open(readme_path, "r") as f:
@@ -128,22 +144,44 @@ def update_readme(gamma, best_res, ned_value, readme_path="README.md"):
     print(f"Updated README.md with gamma={gamma}, res={best_res}, NED={ned_value}")
 
 
-def main(gamma, res, alignment_dir):
-    partition = pd.read_csv(f"output/{gamma}/best_partition_r{round(res, 3)}.csv")
-    texts = get_texts(gamma, alignment_dir)
+def main(gamma, alignment_dir, num_clusters=13967):
+    partition_pattern = Path(f"output/{gamma}").glob("best_partition_r*.csv")
+    partition_files = list(partition_pattern)
 
-    cluster_transcriptions = transcribe_clusters(partition, texts)
-    ned_val = ned(cluster_transcriptions)
-    print(f"NED: {ned_val}")
+    if not partition_files:
+        # No existing partitions found, run the search
+        print("No partition files found. First calculate partition.")
+        return
+    else:
+        # Load existing partitions
+        res_partitions = [
+            (float(p.stem.split("_r")[1]), pd.read_csv(p)) for p in partition_files
+        ]
+
+        # Find the partition with the minimum resolution
+        best_res, best_partition_df = min(res_partitions, key=lambda x: x[0])
+        actual_clusters = len(set(best_partition_df["cluster"]))
+        diff = abs(actual_clusters - num_clusters)
+        phones, texts = get_phones_and_texts(gamma, alignment_dir)
+
+        phone_clusters = transcribe_clusters_into_phones(best_partition_df, phones)
+        text_clusters = transcribe_clusters_into_phones(best_partition_df, texts)
+
+        for id, clust in enumerate(text_clusters):
+            if len(clust) > 5:
+                print(f"Cluster {id}: {clust}")
+        ned_val = ned(phone_clusters)
+
+        print(f"NED: {ned_val}")
+        update_readme(gamma, best_res, ned_val, diff)
 
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Evaluate a given partition.")
     parser.add_argument("gamma", type=float, help="Gamma value for processing.")
-    parser.add_argument("res", type=float, help="Resolution value for processing.")
     parser.add_argument(
         "align_dir", type=Path, help="Alignment directory for getting true texts."
     )
     args = parser.parse_args()
 
-    main(args.gamma, args.res, args.align_dir)
+    main(args.gamma, args.align_dir)

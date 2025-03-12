@@ -154,7 +154,7 @@ def adaptive_res_search(
     return best_res, best_partition
 
 
-def main(gamma, num_clusters, use_preloaded_graph=False):
+def main(gamma, num_clusters=13967, use_preloaded_graph=False):
     temp_dir = Path(f"output/{gamma}/temp")
     temp_dir.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
 
@@ -169,21 +169,39 @@ def main(gamma, num_clusters, use_preloaded_graph=False):
         g.write_pickle(str(graph_path))
         print(f"Graph built and saved to {graph_path}")
 
-    best_res, best_partition = adaptive_res_search(g, num_clusters)
+    partition_pattern = Path(f"output/{gamma}").glob("best_partition_r*.csv")
+    partition_files = list(partition_pattern)
 
-    actual_clusters = len(set(best_partition.membership))
+    if not partition_files:
+        # No existing partitions found, run the search
+        best_res, best_partition = adaptive_res_search(g, num_clusters)
+
+        # Convert best_partition to a DataFrame
+        best_partition_df = pd.DataFrame(
+            {
+                "node": range(len(best_partition.membership)),  # Node IDs
+                "cluster": best_partition.membership,  # Cluster assignments
+            }
+        )
+
+        # Save to CSV
+        best_partition_df.to_csv(
+            f"output/{gamma}/best_partition_r{round(best_res, 3)}.csv", index=False
+        )
+    else:
+        # Load existing partitions
+        res_partitions = [
+            (float(p.stem.split("_r")[1]), pd.read_csv(p)) for p in partition_files
+        ]
+
+        # Find the partition with the minimum resolution
+        best_res, best_partition_df = min(res_partitions, key=lambda x: x[0])
+
+    # Ensure best_partition_df is used for further processing
+    actual_clusters = len(set(best_partition_df["cluster"]))
     diff = abs(actual_clusters - num_clusters)
 
     print(f"Best resolution found: {best_res:.3f} with cluster difference: {diff}")
-
-    df = pd.DataFrame(
-        {
-            "node": range(len(best_partition.membership)),  # Node IDs
-            "cluster": best_partition.membership,  # Cluster assignments
-        }
-    )
-
-    df.to_csv(f"output/{gamma}/best_partition_r{round(best_res, 3)}.csv", index=False)
 
 
 if __name__ == "__main__":
@@ -191,7 +209,9 @@ if __name__ == "__main__":
         description="Run graph-based clustering on text data."
     )
     parser.add_argument("gamma", type=float, help="Gamma value for processing.")
-    parser.add_argument("num_clusters", type=int, help="Target number of clusters.")
+    parser.add_argument(
+        "--num_clusters", default=13967, type=int, help="Target number of clusters."
+    )
 
     parser.add_argument("--preloaded", action="store_true", help="Use preloaded graph.")
 
