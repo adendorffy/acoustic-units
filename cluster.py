@@ -42,7 +42,7 @@ def concat_temp_files(temp_dir, save_dir, total_chunks):
     return rows, cols, vals
 
 
-def build_graph_from_temp(temp_dir, total_chunks):
+def build_graph_from_temp(temp_dir, total_chunks, threshold=0.4):
     total_size = get_total_size(temp_dir, total_chunks)
     sample_size = get_n(total_size)
     print(f"total_size: {total_size}, sample_size: {sample_size}")
@@ -55,7 +55,7 @@ def build_graph_from_temp(temp_dir, total_chunks):
         temp_cols = np.load(temp_dir / f"temp_cols_{i}.npy")
         temp_vals = np.load(temp_dir / f"temp_vals_{i}.npy")
 
-        mask = temp_vals < 0.4
+        mask = temp_vals < threshold
         filtered_rows = temp_rows[mask]
         filtered_cols = temp_cols[mask]
         filtered_vals = temp_vals[mask]
@@ -110,7 +110,7 @@ def adaptive_res_search(
     best_res = res
     best_partition = None
     prev_diff = None  # Track previous diff to compute gradient
-
+    prev_res = None
     for t in range(1, max_iters + 1):
         partition = la.find_partition(
             g,
@@ -146,8 +146,11 @@ def adaptive_res_search(
             print("Getting worse. Stopping. TODO: Implement changing direction.")
             break
 
+        prev_res = res
         res -= alpha * grad
-
+        if prev_res == res:
+            print("Res is stabilising. Abort.")
+            break
         # Prevent resolution from going out of bounds
         res = max(0.001, min(res, 5.0))  # Keep within reasonable range
 
