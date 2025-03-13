@@ -30,9 +30,7 @@ def transcribe_clusters_into_phones(df, phones):
     ensuring the node index exists in texts.
     """
     cluster_transcriptions = [
-        (cluster, phones[x])
-        for cluster, x in zip(df["cluster"], df["node"])
-        if phones[x] not in {"sil", "sp"}
+        (cluster, phones[x]) for cluster, x in zip(df["cluster"], df["node"])
     ]
 
     return cluster_transcriptions
