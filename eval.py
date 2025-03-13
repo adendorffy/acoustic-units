@@ -29,7 +29,6 @@ def transcribe_clusters_into_phones(df, phones):
     Convert a DataFrame with node-cluster mappings to a list of (cluster_id, text),
     ensuring the node index exists in texts.
     """
-
     cluster_transcriptions = [
         (cluster, phones[x])
         for cluster, x in zip(df["cluster"], df["node"])
@@ -79,7 +78,7 @@ def get_phones_and_texts(gamma, align_dir):
         wav_df = align_df[align_df["filename"] == filename_parts[0]]
         word_df = wav_df[wav_df["word_id"] == int(filename_parts[1])]
         texts.append(str(word_df["text"].iloc[0]))
-        phones.append(word_df["phones"].apply(lambda x: tuple(x.split(","))))
+        phones.extend(word_df["phones"].apply(lambda x: tuple(x.split(","))).tolist())
 
     df = pd.DataFrame({"text": texts, "phones": phones})
     df.to_csv(cache_path, index=False)
@@ -127,6 +126,10 @@ def update_readme(gamma, best_res, ned_value, diff, readme_path="README.md"):
     with open(readme_path, "r") as f:
         lines = f.readlines()
 
+    if new_entry in lines:
+        print("Entry already in README.md. No update needed.")
+        return
+
     # Find where to insert the new row (after the header row)
     for i, line in enumerate(lines):
         if "| Gamma | Best Resolution" in line:  # Find the table header
@@ -146,7 +149,7 @@ def update_readme(gamma, best_res, ned_value, diff, readme_path="README.md"):
 
 
 def main(gamma, alignment_dir, num_clusters=13967):
-    partition_pattern = Path(f"output/{gamma}").glob("best_partition_r*.csv")
+    partition_pattern = Path(f"output/{gamma}").glob("partition_r*.csv")
     partition_files = list(partition_pattern)
 
     if not partition_files:
@@ -164,9 +167,8 @@ def main(gamma, alignment_dir, num_clusters=13967):
         actual_clusters = len(set(best_partition_df["cluster"]))
         diff = abs(actual_clusters - num_clusters)
         phones, texts = get_phones_and_texts(gamma, alignment_dir)
-
         phone_clusters = transcribe_clusters_into_phones(best_partition_df, phones)
-        text_clusters = transcribe_clusters_into_phones(best_partition_df, texts)
+        text_clusters = transcribe_clusters(best_partition_df, texts)
 
         for id, clust in enumerate(text_clusters):
             if len(clust) > 5:
