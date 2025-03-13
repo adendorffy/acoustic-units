@@ -87,7 +87,6 @@ def adaptive_res_search(
     initial_res=0.02,
     alpha=0.001,
     max_iters=50,
-    min_alpha=1e-6,  # Prevent alpha from becoming too small
 ):
     """
     Find the best resolution parameter adaptively using a quasi-Adam learning rate.
@@ -97,8 +96,9 @@ def adaptive_res_search(
     - num_clusters: Target number of clusters
     - initial_res: Starting resolution parameter
     - alpha: Step size (learning rate)
+    - beta1, beta2: Momentum parameters
+    - epsilon: Small value to prevent division by zero
     - max_iters: Max number of iterations
-    - min_alpha: Minimum step size to prevent getting stuck
 
     Returns:
     - best_res: The best found resolution parameter
@@ -110,9 +110,6 @@ def adaptive_res_search(
     best_res = res
     best_partition = None
     prev_diff = None  # Track previous diff to compute gradient
-    momentum = 0.5
-    grad = -1
-    prev_grad = -1
 
     for t in range(1, max_iters + 1):
         partition = la.find_partition(
@@ -120,39 +117,39 @@ def adaptive_res_search(
             la.CPMVertexPartition,
             weights="weight",
             resolution_parameter=res,
-            seed=42,
+            seed=42,  # Set seed for reproducibility
         )
         actual_clusters = len(set(partition.membership))
         diff = abs(actual_clusters - num_clusters)
 
+        # Track the best resolution so far
         if diff < min_diff:
             min_diff = diff
             best_res = res
             best_partition = partition
 
-        print(f"Iteration {t}: res={res:.6f}, Cluster difference={diff}")
+        print(f"Iteration {t}: res={res:.3f}, Cluster difference={diff}")
 
-        if min_diff < 5:
+        if min_diff == 0:  # Stop early if an exact match is found
             break
 
+        # Compute gradient based on change in `diff`
         if prev_diff is not None:
-            new_grad = np.sign(diff - prev_diff)
-            if new_grad == prev_grad and new_grad != grad and prev_diff < diff:
-                alpha = max(alpha * momentum, 1e-6)
-            prev_grad = grad
-            grad = new_grad
+            grad = np.sign(diff - prev_diff)  # Direction of change
         else:
-            grad = -1
+            grad = -1.0  # No previous diff in the first iteration
 
-        prev_diff = diff
+        prev_diff = diff  # Update previous difference
 
-        if grad != 0:
-            new_res = res + alpha * grad
-            res = max(0.001, min(new_res, 5.0))
+        res -= alpha * grad  # Update resolution
 
-        if alpha < 1e-6:
-            print("Alpha too small, stopping iteration.")
+        # Stop if getting worse
+        if diff > min_diff:
+            print("Getting worse, stopping search.")
             break
+
+        # Prevent resolution from going out of bounds
+        res = max(0.001, min(res, 5.0))  # Keep within reasonable range
 
     return best_res, best_partition
 
