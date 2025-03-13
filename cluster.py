@@ -157,13 +157,13 @@ def adaptive_res_search(
     return best_res, best_partition
 
 
-def main(gamma, num_clusters=13967, use_preloaded_graph=False, compute_res=False):
+def main(gamma, num_clusters=13967, build_graph=False, compute_res=False):
     temp_dir = Path(f"output/{gamma}/temp")
     temp_dir.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
 
     graph_path = Path(f"output/{gamma}/graph.pkl")
 
-    if use_preloaded_graph and graph_path.exists():
+    if not build_graph and graph_path.exists():
         with open(graph_path, "rb") as f:
             g = pickle.load(f)
         print(f"Loaded precomputed graph from {graph_path}")
@@ -216,10 +216,12 @@ if __name__ == "__main__":
         "--num_clusters", default=13967, type=int, help="Target number of clusters."
     )
 
-    parser.add_argument("--preloaded", action="store_true", help="Use preloaded graph.")
+    parser.add_argument(
+        "--build_graph", action="store_true", help="Don't use preloaded graph."
+    )
     parser.add_argument(
         "--compute_res", action="store_true", help="Compute resolution."
     )
 
     args = parser.parse_args()
-    main(args.gamma, args.num_clusters, args.preloaded, args.compute_res)
+    main(args.gamma, args.num_clusters, args.build_graph, args.compute_res)
