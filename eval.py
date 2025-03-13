@@ -38,7 +38,7 @@ def transcribe_clusters_into_phones(df, phones):
     return cluster_transcriptions
 
 
-def print_clusters(cluster_transcriptions):
+def print_clusters(cluster_transcriptions, phones=False):
     # Dictionary to store all text per cluster
     cluster_texts = defaultdict(list)
 
@@ -49,8 +49,22 @@ def print_clusters(cluster_transcriptions):
     # Print all texts in each cluster
     for cluster_id, texts in cluster_texts.items():
         if len(texts) > 10:
+            if phones:
+                phns = []
+                word = []
+                for text in texts:
+                    for txt in text:
+                        txt = txt.strip("()'")
+                        if txt not in {"sil", "sp", ""}:
+                            word.append(txt)
+                    if word:
+                        phns.append("-".join(word))
+                if phns:
+                    print(f"Cluster {cluster_id} : {' | '.join(phns)}")
+
+                continue
             print(
-                f"Cluster {cluster_id}: {' | '.join([str(text) for text in texts])}\n"
+                f"Cluster {cluster_id}: {' | '.join([str(text) for text in texts if text != 'nan'])}\n"
             )
 
 
@@ -78,7 +92,8 @@ def get_phones_and_texts(gamma, align_dir):
         wav_df = align_df[align_df["filename"] == filename_parts[0]]
         word_df = wav_df[wav_df["word_id"] == int(filename_parts[1])]
         texts.append(str(word_df["text"].iloc[0]))
-        phones.extend(word_df["phones"].apply(lambda x: tuple(x.split(","))).tolist())
+        word_phones = [str(word_df["phones"].iloc[0])]
+        phones.append(tuple(word_phones))
 
     df = pd.DataFrame({"text": texts, "phones": phones})
     df.to_csv(cache_path, index=False)

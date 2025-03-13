@@ -128,7 +128,7 @@ def adaptive_res_search(
             best_res = res
             best_partition = partition
 
-        print(f"Iteration {t}: res={res:.3f}, Cluster difference={diff}")
+        print(f"Iteration {t}: res={res:.6f}, Cluster difference={diff}")
 
         if min_diff == 0:  # Stop early if an exact match is found
             break
@@ -141,12 +141,12 @@ def adaptive_res_search(
 
         prev_diff = diff  # Update previous difference
 
-        res -= alpha * grad  # Update resolution
-
         # Stop if getting worse
         if diff > min_diff:
-            print("Getting worse, stopping search.")
+            print("Getting worse. Stopping. TODO: Implement changing direction.")
             break
+
+        res -= alpha * grad
 
         # Prevent resolution from going out of bounds
         res = max(0.001, min(res, 5.0))  # Keep within reasonable range
