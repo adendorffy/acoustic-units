@@ -169,7 +169,7 @@ def main(gamma, num_clusters=13967, use_preloaded_graph=False):
         g.write_pickle(str(graph_path))
         print(f"Graph built and saved to {graph_path}")
 
-    partition_pattern = Path(f"output/{gamma}").glob("best_partition_r*.csv")
+    partition_pattern = Path(f"output/{gamma}").glob("partition_r*.csv")
     partition_files = list(partition_pattern)
 
     if not partition_files:
@@ -186,7 +186,7 @@ def main(gamma, num_clusters=13967, use_preloaded_graph=False):
 
         # Save to CSV
         best_partition_df.to_csv(
-            f"output/{gamma}/best_partition_r{round(best_res, 3)}.csv", index=False
+            f"output/{gamma}/partition_r{round(best_res, 3)}.csv", index=False
         )
     else:
         # Load existing partitions
