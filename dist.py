@@ -81,6 +81,11 @@ def cal_dist_per_pair(pair):
     return id_1, id_2, 0
 
 
+def process_batch(batch, features):
+    """Parallelized function to calculate distance for each (i, j) pair."""
+    return [cal_dist_per_pair(((i, j), (features[i], features[j]))) for i, j in batch]
+
+
 def main(gamma, chunk_limit):
     # Process chunks
     paths = (p for p in Path(f"features/{gamma}").rglob("**/*.npy"))
