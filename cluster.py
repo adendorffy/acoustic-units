@@ -87,6 +87,7 @@ def adaptive_res_search(
     initial_res=0.02,
     alpha=0.001,
     max_iters=50,
+    tol=1e-6,
 ):
     """
     Find the best resolution parameter adaptively using a quasi-Adam learning rate.
@@ -95,10 +96,9 @@ def adaptive_res_search(
     - g: Graph for clustering
     - num_clusters: Target number of clusters
     - initial_res: Starting resolution parameter
-    - alpha: Step size (learning rate)
-    - beta1, beta2: Momentum parameters
-    - epsilon: Small value to prevent division by zero
+    - alpha: Step size (learning rate), decays over time
     - max_iters: Max number of iterations
+    - tol: Tolerance for detecting stabilization
 
     Returns:
     - best_res: The best found resolution parameter
@@ -111,6 +111,9 @@ def adaptive_res_search(
     best_partition = None
     prev_diff = None  # Track previous diff to compute gradient
     prev_res = None
+    momentum = 0  # For momentum-based updates
+    beta = 0.9  # Momentum decay
+
     for t in range(1, max_iters + 1):
         partition = la.find_partition(
             g,
@@ -136,23 +139,33 @@ def adaptive_res_search(
         # Compute gradient based on change in `diff`
         if prev_diff is not None:
             grad = np.sign(diff - prev_diff)  # Direction of change
+            momentum = beta * momentum + (1 - beta) * grad  # Apply momentum
         else:
-            grad = -1.0  # No previous diff in the first iteration
+            # Determine initial gradient direction
+            grad = 1 if actual_clusters < num_clusters else -1
+            momentum = grad
 
         prev_diff = diff  # Update previous difference
 
-        # Stop if getting worse
+        # Instead of stopping, adaptively change the direction or reduce step size
         if diff > min_diff:
-            print("Getting worse. Stopping. TODO: Implement changing direction.")
-            break
+            print("Getting worse. Reducing step size.")
+            alpha *= 0.5  # Reduce step size instead of stopping
+            grad *= -1  # Reverse direction
 
         prev_res = res
-        res -= alpha * grad
-        if prev_res == res:
+        res -= alpha * momentum  # Apply update
+
+        # If `res` stabilizes (small changes), stop
+        if prev_res is not None and abs(prev_res - res) < tol:
             print("Res is stabilising. Abort.")
             break
+
         # Prevent resolution from going out of bounds
         res = max(0.001, min(res, 5.0))  # Keep within reasonable range
+
+        # Decay step size over time
+        alpha *= 0.95  # Gradual decay
 
     return best_res, best_partition
 
