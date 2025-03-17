@@ -58,7 +58,7 @@ def print_clusters(dist_per_cluster):
 
 
 def get_phones_and_texts(gamma, align_dir):
-    cache_path = Path(f"features/{gamma}/texts_and_phones.csv")
+    cache_path = Path("features/texts_and_phones.csv")
 
     if cache_path.exists():
         df = pd.read_csv(cache_path)

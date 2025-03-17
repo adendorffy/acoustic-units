@@ -88,9 +88,12 @@ def adaptive_res_search(
     alpha=0.001,
     max_iters=50,
     tol=1e-6,
+    patience=3,  # Allow worsening steps before reversing
+    min_alpha=1e-5,  # Prevent alpha from shrinking too much
+    alpha_boost=1.1,  # Increase alpha slightly when reversing
 ):
     """
-    Find the best resolution parameter adaptively using a quasi-Adam learning rate.
+    Find the best resolution parameter adaptively.
 
     Parameters:
     - g: Graph for clustering
@@ -99,6 +102,9 @@ def adaptive_res_search(
     - alpha: Step size (learning rate), decays over time
     - max_iters: Max number of iterations
     - tol: Tolerance for detecting stabilization
+    - patience: Number of bad steps before reversing
+    - min_alpha: Minimum step size to prevent getting stuck
+    - alpha_boost: Multiplier to increase step size after reversing
 
     Returns:
     - best_res: The best found resolution parameter
@@ -109,8 +115,10 @@ def adaptive_res_search(
     min_diff = float("inf")
     best_res = res
     best_partition = None
-    prev_diff = None  # Track previous diff to compute gradient
+    prev_diff = None  # Track previous diff
     prev_res = None
+
+    worsening_steps = 0  # Count worsening steps
 
     for t in range(1, max_iters + 1):
         partition = la.find_partition(
@@ -128,41 +136,49 @@ def adaptive_res_search(
             min_diff = diff
             best_res = res
             best_partition = partition
+            worsening_steps = 0  # Reset worsening step counter
 
         print(f"Iteration {t}: res={res:.6f}, Cluster difference={diff}")
 
         if min_diff == 0:  # Stop early if an exact match is found
             break
 
-        # Compute gradient based on change in `diff`
+        # Compute adaptive gradient
         if prev_diff is not None:
-            grad = np.sign(diff - prev_diff)  # Direction of change
-
+            if diff < prev_diff:
+                grad = -1  # Moving in the right direction
+                worsening_steps = 0  # Reset worsening count
+            else:
+                grad = 1  # Moving in the wrong direction
+                worsening_steps += 1  # Track consecutive bad steps
         else:
-            # Determine initial gradient direction
-            grad = 1 if actual_clusters < num_clusters else -1
+            grad = 1 if actual_clusters < num_clusters else -1  # Initial direction
 
         prev_diff = diff  # Update previous difference
 
-        # Instead of stopping, adaptively change the direction or reduce step size
-        if diff > min_diff:
-            print("Getting worse. Reducing step size.")
-            alpha *= 0.5  # Reduce step size instead of stopping
-            grad *= -1  # Reverse direction
+        # If we hit the patience threshold, reverse direction & boost step size
+        if worsening_steps >= patience:
+            print(
+                f"Too many worsening steps ({worsening_steps}), reversing direction and boosting step size."
+            )
+            grad *= -1
+            alpha *= alpha_boost  # Increase step size slightly
+            worsening_steps = 0  # Reset patience counter
 
         prev_res = res
-        res -= alpha * grad  # Apply update
+        res += alpha * grad  # Apply gradient update
 
         # If `res` stabilizes (small changes), stop
         if prev_res is not None and abs(prev_res - res) < tol:
-            print("Res is stabilising. Abort.")
+            print("Res is stabilizing. Abort.")
             break
 
         # Prevent resolution from going out of bounds
         res = max(0.001, min(res, 5.0))  # Keep within reasonable range
 
-        # Decay step size over time
-        alpha *= 0.95  # Gradual decay
+        # Adaptive learning rate decay (but keep it above `min_alpha`)
+        alpha *= 0.95  # Reduce step size gradually
+        alpha = max(alpha, min_alpha)  # Ensure alpha does not become too small
 
     return best_res, best_partition
 
