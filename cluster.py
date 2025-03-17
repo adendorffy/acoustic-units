@@ -111,8 +111,6 @@ def adaptive_res_search(
     best_partition = None
     prev_diff = None  # Track previous diff to compute gradient
     prev_res = None
-    momentum = 0  # For momentum-based updates
-    beta = 0.9  # Momentum decay
 
     for t in range(1, max_iters + 1):
         partition = la.find_partition(
@@ -139,11 +137,10 @@ def adaptive_res_search(
         # Compute gradient based on change in `diff`
         if prev_diff is not None:
             grad = np.sign(diff - prev_diff)  # Direction of change
-            momentum = beta * momentum + (1 - beta) * grad  # Apply momentum
+
         else:
             # Determine initial gradient direction
             grad = 1 if actual_clusters < num_clusters else -1
-            momentum = grad
 
         prev_diff = diff  # Update previous difference
 
@@ -154,7 +151,7 @@ def adaptive_res_search(
             grad *= -1  # Reverse direction
 
         prev_res = res
-        res -= alpha * momentum  # Apply update
+        res -= alpha * grad  # Apply update
 
         # If `res` stabilizes (small changes), stop
         if prev_res is not None and abs(prev_res - res) < tol:

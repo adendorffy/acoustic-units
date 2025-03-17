@@ -1,69 +1,60 @@
 from pathlib import Path
 from tqdm import tqdm
 import pandas as pd
-from collections import defaultdict
+from collections import Counter
 import itertools
 import statistics
 import editdistance
 import argparse
+import re
 
 
-def transcribe_clusters(df, texts):
+def transcribe_clusters(df, phones, texts):
     """
     Convert a DataFrame with node-cluster mappings to a list of (cluster_id, text),
     ensuring the node index exists in texts.
     """
-
-    cluster_transcriptions = list(
-        zip(
-            df["cluster"],
-            df["node"].map(lambda x: texts[x]),
+    tuple_phones = []
+    for id, word_phones in enumerate(phones):
+        word_phones_tuple = tuple(word_phones[0].split(" "))
+        word_phones_tuple = tuple(
+            re.sub(r"[012]", "", phn)
+            for phn in word_phones_tuple
+            if phn != "sil" and phn != "sp"
         )
-    )
+        text = texts[id]
+        tuple_phones.append((id, word_phones_tuple, text))
 
-    return cluster_transcriptions
+    cluster_tuples = []
+    seen_nodes = set()  # To track nodes we've already added
+
+    for node_id, cluster in tqdm(
+        zip(df["node"], df["cluster"]),
+        total=len(df["node"]),
+        desc="Creating Clusters",
+    ):
+        for node, phone, word in tuple_phones:
+            if node_id == node and node_id not in seen_nodes:
+                cluster_tuples.append((cluster, phone, word))
+                seen_nodes.add(node_id)  # Mark this node as added
+                break  # Exit loop early once node is matched
+
+    return cluster_tuples
 
 
-def transcribe_clusters_into_phones(df, phones):
-    """
-    Convert a DataFrame with node-cluster mappings to a list of (cluster_id, text),
-    ensuring the node index exists in texts.
-    """
-    cluster_transcriptions = [
-        (cluster, phones[x]) for cluster, x in zip(df["cluster"], df["node"])
-    ]
+def print_clusters(dist_per_cluster):
+    cluster_counters = {}
 
-    return cluster_transcriptions
+    for cluster_id, group_list, dist in dist_per_cluster:
+        words_phones = [("-".join(phn), wrd) for _, phn, wrd in group_list]
+        cluster_counters[cluster_id] = Counter(words_phones)  # Count per cluster
 
-
-def print_clusters(cluster_transcriptions, phones=False):
-    # Dictionary to store all text per cluster
-    cluster_texts = defaultdict(list)
-
-    # Group all text by cluster_id
-    for cluster_id, txt in cluster_transcriptions:
-        cluster_texts[cluster_id].append(txt)
-
-    # Print all texts in each cluster
-    for cluster_id, texts in cluster_texts.items():
-        if len(texts) > 10:
-            if phones:
-                phns = []
-                word = []
-                for text in texts:
-                    for txt in text:
-                        txt = txt.strip("()'")
-                        if txt not in {"sil", "sp", ""}:
-                            word.append(txt)
-                    if word:
-                        phns.append("-".join(word))
-                if phns:
-                    print(f"Cluster {cluster_id} : {' | '.join(phns)}")
-
-                continue
-            print(
-                f"Cluster {cluster_id}: {' | '.join([str(text) for text in texts if text != 'nan'])}\n"
-            )
+    for cluster_id, counter in cluster_counters.items():
+        print(
+            f"{'-' * 50}\nCluster {cluster_id}: {dist_per_cluster[cluster_id][2]}\n{'-' * 50}"
+        )
+        for (phoneme, word), count in sorted(counter.items(), key=lambda x: -x[1]):
+            print(f"{phoneme:8} [{word:5}] -> {count} times")
 
 
 def get_phones_and_texts(gamma, align_dir):
@@ -90,25 +81,26 @@ def get_phones_and_texts(gamma, align_dir):
         wav_df = align_df[align_df["filename"] == filename_parts[0]]
         word_df = wav_df[wav_df["word_id"] == int(filename_parts[1])]
         texts.append(str(word_df["text"].iloc[0]))
-        word_phones = [str(word_df["phones"].iloc[0])]
-        phones.append(tuple(word_phones))
+        word_phones = word_df["phones"].iloc[0].split(",")
+        word_phones = " ".join(word_phones)
+        phones.append(word_phones)
 
     df = pd.DataFrame({"text": texts, "phones": phones})
     df.to_csv(cache_path, index=False)
     print(f"Saved texts to {cache_path}")
 
-    return phones, texts
+    return df["phones"].apply(lambda x: tuple(x.split(","))), df["text"].tolist()
 
 
 def distance(p, q):
     """Compute normalized edit distance between two strings."""
     length = max(len(p), len(q))
-    return (
-        editdistance.eval(p, q) / length if length > 0 else 1
-    )  # Avoid division by zero
+    if length <= 0:
+        return 0.0
+    return editdistance.eval(p, q) / length
 
 
-def ned(clusters):
+def ned(clusters, num_clusters):
     """Compute the normalized edit distance (NED) within each cluster."""
     if not clusters:
         return 0
@@ -116,17 +108,26 @@ def ned(clusters):
     clusters = sorted(clusters, key=lambda x: x[0])
 
     distances = []
-    for _, group in itertools.groupby(clusters, key=lambda x: x[0]):
+    distances_per_cluster = []
+    for idx, group in tqdm(
+        itertools.groupby(clusters, key=lambda x: x[0]),
+        total=num_clusters,
+        desc="Clustering",
+    ):
         group_list = list(group)
 
         if len(group_list) < 2:
             continue
-
+        clust_distances = []
         for p, q in itertools.combinations(group_list, 2):
             d = distance(p[1], q[1])
             distances.append(d)
+            clust_distances.append(d)
+        distances_per_cluster.append(
+            (idx, group_list, statistics.mean(clust_distances))
+        )
 
-    return statistics.mean(distances)
+    return statistics.mean(distances), distances_per_cluster
 
 
 def update_readme(gamma, best_res, ned_value, diff, readme_path="README.md"):
@@ -163,6 +164,7 @@ def update_readme(gamma, best_res, ned_value, diff, readme_path="README.md"):
 
 def main(gamma, alignment_dir, num_clusters=13967):
     partition_pattern = Path(f"output/{gamma}").glob("partition_r*.csv")
+
     partition_files = list(partition_pattern)
 
     if not partition_files:
@@ -179,16 +181,13 @@ def main(gamma, alignment_dir, num_clusters=13967):
         best_res, best_partition_df = min(res_partitions, key=lambda x: x[0])
         actual_clusters = len(set(best_partition_df["cluster"]))
         diff = abs(actual_clusters - num_clusters)
+
         phones, texts = get_phones_and_texts(gamma, alignment_dir)
-        phone_clusters = transcribe_clusters_into_phones(best_partition_df, phones)
-        text_clusters = transcribe_clusters(best_partition_df, texts)
-
-        for id, clust in enumerate(text_clusters):
-            if len(clust) > 5:
-                print(f"Cluster {id}: {clust}")
-        ned_val = ned(phone_clusters)
-
+        phone_clusters = transcribe_clusters(best_partition_df, phones, texts)
+        ned_val, dist_p_cluster = ned(phone_clusters, num_clusters - diff)
         print(f"NED: {ned_val}")
+        print_clusters(dist_p_cluster)
+
         update_readme(gamma, best_res, ned_val, diff)
 
 
