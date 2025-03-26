@@ -19,15 +19,15 @@ for GAMMA in "${GAMMAS[@]}"; do
     echo "Step 3: Clustering for Gamma=$GAMMA, Layer=$LAYER"
     python cluster.py "$GAMMA" "$LAYER" "$OUTPUT_DIR" --num_clusters "$NUM_CLUSTERS"
 
-    echo "Step 4: Evaluating clustering results for Gamma=$GAMMA, Layer=$LAYER"
+    # echo "Step 4: Evaluating clustering results for Gamma=$GAMMA, Layer=$LAYER"
 
-    echo "a) Extract alignmentsa and align to feature paths"
-    python extract_alignment.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" "$FEATURES_DIR" "$OUTPUT_DIR"
+    # echo "a) Extract alignmentsa and align to feature paths"
+    # python extract_alignment.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" "$FEATURES_DIR" "$OUTPUT_DIR"
 
-    echo "b) Convert partition to .list files"
-    python convert_partition.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" 
+    # echo "b) Convert partition to .list files"
+    # python convert_partition.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" 
 
-    
+
 
 done
 

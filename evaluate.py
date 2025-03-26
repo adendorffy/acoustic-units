@@ -52,38 +52,6 @@ def ned(discovered: Iterable[Tuple[Fragment, int, Transcription]]) -> float:
     return statistics.mean(distances)
 
 
-def coverage(
-    disc: Iterable[Tuple[Fragment, Transcription]],
-    gold: Iterable[Transcription],
-):
-    covered = {
-        (fragment.speaker, interval.begin, interval.end, interval.data)
-        for fragment, transcription in disc
-        for interval in transcription.intervals
-        if interval.data != "sil" and interval.data != "spn" and interval.data != "sp"
-    }
-    total = [
-        interval.data
-        for transcription in gold
-        for interval in transcription.intervals
-        if interval.data != "sil" and interval.data != "spn" and interval.data != "sp"
-    ]
-    return len(covered) / len(total)
-
-
-def types(
-    gold: Iterable[Transcription],
-    disc: Iterable[Transcription],
-) -> Tuple[float, float, float]:
-    gold_types = {transcription.tokens for transcription in gold}
-    disc_types = {transcription.tokens for transcription in disc}
-    intersection = gold_types & disc_types
-    precision = len(intersection) / len(disc_types)
-    recall = len(intersection) / len(gold_types)
-    fscore = 2 * (precision * recall) / (precision + recall)
-    return precision, recall, fscore
-
-
 def tokens(
     gold: Iterable[Fragment],
     disc: Iterable[Fragment],
@@ -223,8 +191,3 @@ if __name__ == "__main__":
     gold_transcriptions = [word for words in gold_words.values() for word in words]
 
     print("NED", ned(zip(disc_fragments, disc_clusters, disc_transcriptions)))
-    print(
-        "Coverage",
-        coverage(zip(disc_fragments, disc_transcriptions), gold_transcriptions),
-    )
-    print("Types", types(gold_transcriptions, disc_transcriptions))

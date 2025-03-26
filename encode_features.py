@@ -113,11 +113,12 @@ if __name__ == "__main__":
         "audio_dir", type=Path, help="Path to the directory containing audio files."
     )
     parser.add_argument(
-        "feat_dir", type=Path, help="Path to the directory to store encodings."
-    )
-    parser.add_argument(
         "align_dir", type=Path, help="Path to the directory with the alignments."
     )
+    parser.add_argument(
+        "feat_dir", type=Path, help="Path to the directory to store encodings."
+    )
+
     parser.add_argument(
         "--audio_ext",
         type=str,
