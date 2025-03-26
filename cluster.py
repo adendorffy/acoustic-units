@@ -1,124 +1,77 @@
-from pathlib import Path
-from tqdm import tqdm
-import numpy as np
-import igraph as ig
-import leidenalg as la
-import pandas as pd
 import argparse
 import pickle
+from pathlib import Path
+from typing import Tuple
+
+import numpy as np
+import leidenalg as la
+import igraph as ig
+import pandas as pd
+
+DEV_CLEAN_CLUSTERS: int = 13_967
 
 
-def get_total_size(temp_dir, total_chunks):
+def get_total_size(dist_dir: Path) -> int:
+    total_chunks = sum(1 for _ in dist_dir.rglob("vals_*.npy"))
+    print(f"Get total_size for {dist_dir} [total_chunks: {total_chunks}]")
     total_size = sum(
-        np.load(temp_dir / f"temp_rows_{i}.npy").shape[0]
-        for i in tqdm(range(total_chunks), desc="Calculating total")
+        np.load(dist_dir / f"vals_{i}.npy").shape[0] for i in range(total_chunks)
     )
-    return total_size
+    return total_size, total_chunks
 
 
-def concat_temp_files(temp_dir, save_dir, total_chunks):
-    rows, cols, vals = [], [], []
-    elements = ["rows", "cols", "vals"]
-
-    first_chunk = np.load(temp_dir / "temp_rows_0.npy")
-    dtype = first_chunk.dtype
-
-    total_size = get_total_size(temp_dir, total_chunks)
-
-    for element in elements:
-        file_path = save_dir / f"{element}.npy"
-        merged_data = np.memmap(file_path, dtype=dtype, mode="w+", shape=(total_size,))
-
-        index = 0
-        for i in tqdm(range(total_chunks), desc=f"Writing {element} to disk"):
-            temp_data = np.load(temp_dir / f"temp_{element}_{i}.npy")
-            merged_data[index : index + temp_data.shape[0]] = temp_data
-
-            index += temp_data.shape[0]
-
-        merged_data.flush()
-        del merged_data
-
-    return rows, cols, vals
+def get_n(length_list: int) -> int:
+    return int((1 + np.sqrt(1 + 8 * length_list)) // 2)
 
 
-def build_graph_from_temp(temp_dir, total_chunks, threshold=0.4):
-    total_size = get_total_size(temp_dir, total_chunks)
+def build_graph_from_chunks(dist_dir: Path, threshold: float = 0.4) -> ig.Graph:
+    total_size, total_chunks = get_total_size(dist_dir)
     sample_size = get_n(total_size)
-    print(f"total_size: {total_size}, sample_size: {sample_size}")
+    print(f"🧮 Total pairwise entries: {total_size}, Sample size: {sample_size}")
 
     g = ig.Graph()
     g.add_vertices(sample_size)
+    prev_progress = -1
 
-    for i in tqdm(range(total_chunks), desc="Getting Temp Info"):
-        temp_rows = np.load(temp_dir / f"temp_rows_{i}.npy")
-        temp_cols = np.load(temp_dir / f"temp_cols_{i}.npy")
-        temp_vals = np.load(temp_dir / f"temp_vals_{i}.npy")
+    for i in range(total_chunks):
+        rows = np.load(dist_dir / f"rows_{i}.npy")
+        cols = np.load(dist_dir / f"cols_{i}.npy")
+        vals = np.load(dist_dir / f"vals_{i}.npy")
 
-        mask = temp_vals < threshold
-        filtered_rows = temp_rows[mask]
-        filtered_cols = temp_cols[mask]
-        filtered_vals = temp_vals[mask]
+        mask = vals < threshold
+        edges = list(zip(rows[mask], cols[mask]))
+        weights = vals[mask].astype(float)
 
-        # Convert edges and weights to lists
-        edges = list(zip(map(int, filtered_rows), map(int, filtered_cols)))
-        weights = list(map(float, filtered_vals))
+        weights = np.where(weights > 0, weights, 1e-10).tolist()
 
-        weights = [w if w > 0 else 1e-10 for w in weights]
-
-        # Add edges if they exist
         if edges:
             g.add_edges(edges)
+            g.es[-len(weights) :].set_attribute_values("weight", weights)
 
-            # Assign weights only to newly added edges
-            if weights:
-                g.es[-len(weights) :].set_attribute_values("weight", weights)
+        progress = int((i / total_chunks) * 100)
+        if progress % 5 == 0 and progress > prev_progress:
+            print(f"🟢 Progress: {progress}% ({i}/{total_chunks} chunks)", flush=True)
+            prev_progress = progress
 
     return g
 
 
-def get_n(length_list):
-    return int(1 + np.sqrt(1 + 8 * length_list)) // 2
-
-
 def adaptive_res_search(
-    g,
-    num_clusters,
-    initial_res=0.02,
-    alpha=0.001,
-    max_iters=50,
-    tol=1e-6,
-    patience=3,  # Allow worsening steps before reversing
-    min_alpha=1e-5,  # Prevent alpha from shrinking too much
-    alpha_boost=1.1,  # Increase alpha slightly when reversing
-):
-    """
-    Find the best resolution parameter adaptively.
-
-    Parameters:
-    - g: Graph for clustering
-    - num_clusters: Target number of clusters
-    - initial_res: Starting resolution parameter
-    - alpha: Step size (learning rate), decays over time
-    - max_iters: Max number of iterations
-    - tol: Tolerance for detecting stabilization
-    - patience: Number of bad steps before reversing
-    - min_alpha: Minimum step size to prevent getting stuck
-    - alpha_boost: Multiplier to increase step size after reversing
-
-    Returns:
-    - best_res: The best found resolution parameter
-    - best_partition: The corresponding partition
-    """
-
+    g: ig.Graph,
+    num_clusters: int,
+    initial_res: float = 0.02,
+    alpha: float = 0.001,
+    max_iters: int = 50,
+    tol: float = 1e-6,
+    patience: int = 3,
+    min_alpha: float = 1e-5,
+    alpha_boost: float = 1.1,
+) -> Tuple[float]:
     res = initial_res
+    best_res, best_partition = res, None
     min_diff = float("inf")
-    best_res = res
-    best_partition = None
-    prev_diff = None  # Track previous diff
-    prev_res = None
-
-    worsening_steps = 0  # Count worsening steps
+    prev_diff = None
+    worsening_steps = 0
 
     for t in range(1, max_iters + 1):
         partition = la.find_partition(
@@ -126,111 +79,112 @@ def adaptive_res_search(
             la.CPMVertexPartition,
             weights="weight",
             resolution_parameter=res,
-            seed=42,  # Set seed for reproducibility
+            seed=42,
         )
         actual_clusters = len(set(partition.membership))
         diff = abs(actual_clusters - num_clusters)
 
-        # Track the best resolution so far
         if diff < min_diff:
-            min_diff = diff
-            best_res = res
-            best_partition = partition
-            worsening_steps = 0  # Reset worsening step counter
+            min_diff, best_res, best_partition = diff, res, partition
+            worsening_steps = 0
 
-        print(f"Iteration {t}: res={res:.6f}, Cluster difference={diff}")
+        print(
+            f"[Iteration {t}] res={res:.6f}, clusters={actual_clusters}, diff={diff}",
+            flush=True,
+        )
 
-        if min_diff == 0:  # Stop early if an exact match is found
+        if diff == 0:
             break
 
-        # Compute adaptive gradient
-        if prev_diff is not None:
-            if diff < prev_diff:
-                grad = -1  # Moving in the right direction
-                worsening_steps = 0  # Reset worsening count
-            else:
-                grad = 1  # Moving in the wrong direction
-                worsening_steps += 1  # Track consecutive bad steps
+        grad = 1 if actual_clusters < num_clusters else -1
+
+        if prev_diff is not None and diff >= prev_diff:
+            worsening_steps += 1
         else:
-            grad = 1 if actual_clusters < num_clusters else -1  # Initial direction
+            worsening_steps = 0
 
-        prev_diff = diff  # Update previous difference
+        prev_diff = diff
 
-        # If we hit the patience threshold, reverse direction & boost step size
         if worsening_steps >= patience:
             print(
-                f"Too many worsening steps ({worsening_steps}), reversing direction and boosting step size."
+                f"Reversing direction & boosting step size (α → {alpha * alpha_boost:.6f}).",
+                flush=True,
             )
             grad *= -1
-            alpha *= alpha_boost  # Increase step size slightly
-            worsening_steps = 0  # Reset patience counter
+            alpha *= alpha_boost
+            worsening_steps = 0
 
-        prev_res = res
-        res += alpha * grad  # Apply gradient update
+        new_res = max(0.001, min(res + alpha * grad, 5.0))
 
-        # If `res` stabilizes (small changes), stop
-        if prev_res is not None and abs(prev_res - res) < tol:
-            print("Res is stabilizing. Abort.")
+        if abs(new_res - res) < tol:
+            print("Resolution is stabilizing. Stopping search.")
             break
 
-        # Prevent resolution from going out of bounds
-        res = max(0.001, min(res, 5.0))  # Keep within reasonable range
-
-        # Adaptive learning rate decay (but keep it above `min_alpha`)
-        alpha *= 0.95  # Reduce step size gradually
-        alpha = max(alpha, min_alpha)  # Ensure alpha does not become too small
+        res = new_res
+        alpha = max(alpha * 0.95, min_alpha)
 
     return best_res, best_partition
 
 
-def main(gamma, num_clusters=13967, build_graph=False, compute_res=False):
-    temp_dir = Path(f"output/{gamma}/temp")
-    temp_dir.mkdir(parents=True, exist_ok=True)  # Ensure the directory exists
+def cluster(
+    gamma: float,
+    layer: int,
+    out_dir: Path,
+    threshold: float = 0.4,
+    initial_res: float = 0.02,
+    num_clusters: int = DEV_CLEAN_CLUSTERS,
+):
+    output_dir = out_dir / str(gamma) / str(layer)
+    dist_dir = out_dir / "distances" / str(gamma) / str(layer)
 
-    graph_path = Path(f"output/{gamma}/graph.pkl")
+    if not dist_dir.exists():
+        print(f"{dist_dir} does not exist. First calculate distances.")
+        return
 
-    if not build_graph and graph_path.exists():
+    output_dir.mkdir(exist_ok=True, parents=True)
+
+    graph_path = output_dir / f"graph_t{threshold}.pkl"
+    partition_pattern = output_dir.glob("partition_r*.csv")
+    partition_files = list(partition_pattern)
+
+    if graph_path.exists():
         with open(graph_path, "rb") as f:
             g = pickle.load(f)
         print(f"Loaded precomputed graph from {graph_path}")
     else:
-        g = build_graph_from_temp(temp_dir, 399)
-        g.write_pickle(str(graph_path))
-        print(f"Graph built and saved to {graph_path}")
+        g = build_graph_from_chunks(dist_dir, threshold)
+        with open(graph_path, "wb") as f:
+            pickle.dump(g, f)
+        print(f"Graph built and saved to {graph_path}", flush=True)
 
-    partition_pattern = Path(f"output/{gamma}").glob("partition_r*.csv")
-    partition_files = list(partition_pattern)
-
-    if not partition_files or compute_res:
-        # No existing partitions found, run the search
-        best_res, best_partition = adaptive_res_search(g, num_clusters)
-
-        # Convert best_partition to a DataFrame
+    if not partition_files:
+        best_res, best_partition = adaptive_res_search(
+            g, num_clusters, initial_res=initial_res
+        )
         best_partition_df = pd.DataFrame(
             {
-                "node": range(len(best_partition.membership)),  # Node IDs
-                "cluster": best_partition.membership,  # Cluster assignments
+                "node": range(len(best_partition.membership)),
+                "cluster": best_partition.membership,
             }
         )
+        ouput_path = output_dir / f"partition_r{best_res:.6f}.csv"
+        best_partition_df.to_csv(ouput_path, index=False)
 
-        # Save to CSV
-        best_partition_df.to_csv(
-            f"output/{gamma}/partition_r{round(best_res, 3)}.csv", index=False
+        print(
+            f"Partition saved to {str(output_dir) + f'/partition_r{best_res:.6f}.csv'}",
+            flush=True,
         )
+        return best_res, best_partition_df
     else:
-        # Load existing partitions
         res_partitions = [
             (float(p.stem.split("_r")[1]), pd.read_csv(p)) for p in partition_files
         ]
-
-        # Find the partition with the minimum resolution
-        best_res, best_partition_df = min(res_partitions, key=lambda x: x[0])
-
-    # Ensure best_partition_df is used for further processing
-    actual_clusters = len(set(best_partition_df["cluster"]))
-    diff = abs(actual_clusters - num_clusters)
-
-    print(f"Best resolution found: {best_res:.3f} with cluster difference: {diff}")
+        if not res_partitions:
+            print("No partitions found.")
+            return
+        best_res = res_partitions[0][0]
+        best_partition_df = res_partitions[0][1]
+        return best_res, best_partition_df
 
 
 if __name__ == "__main__":
@@ -238,16 +192,28 @@ if __name__ == "__main__":
         description="Run graph-based clustering on text data."
     )
     parser.add_argument("gamma", type=float, help="Gamma value for processing.")
+    parser.add_argument("layer", type=int, help="Layer number for processing.")
     parser.add_argument(
-        "--num_clusters", default=13967, type=int, help="Target number of clusters."
-    )
-
-    parser.add_argument(
-        "--build_graph", action="store_true", help="Don't use preloaded graph."
+        "out_dir", type=Path, help="Path to the directory to store output."
     )
     parser.add_argument(
-        "--compute_res", action="store_true", help="Compute resolution."
+        "--num_clusters",
+        default=DEV_CLEAN_CLUSTERS,
+        type=int,
+        help="Target number of clusters.",
+    )
+    parser.add_argument(
+        "--threshold",
+        default=0.4,
+        type=float,
+        help="Distance threshold for graph edges.",
     )
 
     args = parser.parse_args()
-    main(args.gamma, args.num_clusters, args.build_graph, args.compute_res)
+    cluster(
+        args.gamma,
+        args.layer,
+        args.out_dir,
+        args.threshold,
+        num_clusters=args.num_clusters,
+    )
