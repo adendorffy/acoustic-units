@@ -9,7 +9,39 @@ Pairs: 2167419880, Batches: 434
 All batches already processed and saved in output/distances/0.0/7.
 Step 3: Clustering for Gamma=0.0, Layer=7
 a) Build Graph
-Get total_size for output/distances/0.0/7 [total_chunks: 434]
+Graph already built and stored in output/0.0/7/graph_t0.4.pkl
+Processing Gamma: 0.0001
+Step 1: Encoding features for Gamma=0.0001, Layer=7
+Processing 2703 audio files...
+Total words: 65840
+Already encoded audio using gamma = 0.0001 at layer 7
+Step 2: Computing pairwise distances for Gamma=0.0001, Layer=7
+Loading 65840 Features..
+Pairs: 2167419880, Batches: 434
+🟢 Progress: 0% (0/434 files)
+🟢 Progress: 5% (22/434 files)
+🟢 Progress: 10% (44/434 files)
+🟢 Progress: 15% (66/434 files)
+🟢 Progress: 20% (87/434 files)
+🟢 Progress: 25% (109/434 files)
+🟢 Progress: 30% (131/434 files)
+🟢 Progress: 35% (152/434 files)
+🟢 Progress: 40% (174/434 files)
+🟢 Progress: 45% (196/434 files)
+🟢 Progress: 50% (217/434 files)
+🟢 Progress: 55% (239/434 files)
+🟢 Progress: 60% (261/434 files)
+🟢 Progress: 65% (283/434 files)
+🟢 Progress: 70% (304/434 files)
+🟢 Progress: 75% (326/434 files)
+🟢 Progress: 80% (348/434 files)
+🟢 Progress: 85% (369/434 files)
+🟢 Progress: 90% (391/434 files)
+🟢 Progress: 95% (413/434 files)
+All batches processed. Results saved in output/distances/0.0001/7
+Step 3: Clustering for Gamma=0.0001, Layer=7
+a) Build Graph
+Get total_size for output/distances/0.0001/7 [total_chunks: 434]
 💎 Total pairwise entries: 2167419880, Sample size: 65840
 🟢 Progress: 0% (0/434 chunks)
 🟢 Progress: 5% (22/434 chunks)
@@ -31,5 +63,74 @@ Get total_size for output/distances/0.0/7 [total_chunks: 434]
 🟢 Progress: 85% (369/434 chunks)
 🟢 Progress: 90% (391/434 chunks)
 🟢 Progress: 95% (413/434 chunks)
-Graph saved to output/0.0/7/graph_t0.4.pkl
-b) Calculate Partition
+Graph saved to output/0.0001/7/graph_t0.4.pkl
+Processing Gamma: 0.001
+Step 1: Encoding features for Gamma=0.001, Layer=7
+Processing 2703 audio files...
+Total words: 65840
+Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
+Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
+Using cache found in /home/danel/.cache/torch/hub/bshall_hubert_main
+🟢 Progress: 0% (1/2703 files)
+🟢 Progress: 10% (271/2703 files)
+🟢 Progress: 20% (541/2703 files)
+🟢 Progress: 30% (811/2703 files)
+🟢 Progress: 40% (1082/2703 files)
+🟢 Progress: 50% (1352/2703 files)
+🟢 Progress: 60% (1622/2703 files)
+🟢 Progress: 70% (1893/2703 files)
+🟢 Progress: 80% (2163/2703 files)
+🟢 Progress: 90% (2433/2703 files)
+🟢 Progress: 100% (2703/2703 files)
+
+✅ Processing complete!
+Step 2: Computing pairwise distances for Gamma=0.001, Layer=7
+Loading 65840 Features..
+Pairs: 2167419880, Batches: 434
+🟢 Progress: 0% (0/434 files)
+🟢 Progress: 5% (22/434 files)
+🟢 Progress: 10% (44/434 files)
+🟢 Progress: 15% (66/434 files)
+🟢 Progress: 20% (87/434 files)
+🟢 Progress: 25% (109/434 files)
+🟢 Progress: 30% (131/434 files)
+🟢 Progress: 35% (152/434 files)
+🟢 Progress: 40% (174/434 files)
+🟢 Progress: 45% (196/434 files)
+🟢 Progress: 50% (217/434 files)
+🟢 Progress: 55% (239/434 files)
+🟢 Progress: 60% (261/434 files)
+🟢 Progress: 65% (283/434 files)
+🟢 Progress: 70% (304/434 files)
+🟢 Progress: 75% (326/434 files)
+🟢 Progress: 80% (348/434 files)
+🟢 Progress: 85% (369/434 files)
+🟢 Progress: 90% (391/434 files)
+🟢 Progress: 95% (413/434 files)
+All batches processed. Results saved in output/distances/0.001/7
+Step 3: Clustering for Gamma=0.001, Layer=7
+a) Build Graph
+Get total_size for output/distances/0.001/7 [total_chunks: 434]
+💎 Total pairwise entries: 2167419880, Sample size: 65840
+🟢 Progress: 0% (0/434 chunks)
+🟢 Progress: 5% (22/434 chunks)
+🟢 Progress: 10% (44/434 chunks)
+🟢 Progress: 15% (66/434 chunks)
+🟢 Progress: 20% (87/434 chunks)
+🟢 Progress: 25% (109/434 chunks)
+🟢 Progress: 30% (131/434 chunks)
+🟢 Progress: 35% (152/434 chunks)
+🟢 Progress: 40% (174/434 chunks)
+🟢 Progress: 45% (196/434 chunks)
+🟢 Progress: 50% (217/434 chunks)
+🟢 Progress: 55% (239/434 chunks)
+🟢 Progress: 60% (261/434 chunks)
+🟢 Progress: 65% (283/434 chunks)
+🟢 Progress: 70% (304/434 chunks)
+🟢 Progress: 75% (326/434 chunks)
+🟢 Progress: 80% (348/434 chunks)
+🟢 Progress: 85% (369/434 chunks)
+🟢 Progress: 90% (391/434 chunks)
+🟢 Progress: 95% (413/434 chunks)
+Graph saved to output/0.001/7/graph_t0.4.pkl
+🎉 All gamma values processed!

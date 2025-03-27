@@ -17,7 +17,7 @@ def extract_alignments(align_dir: Path) -> pd.DataFrame:
         return pd.DataFrame()
 
     alignment_records: List[dict] = []
-
+    num_words = 0
     for i, textgrid_path in enumerate(textgrid_paths, start=1):
         try:
             grid = textgrids.TextGrid(textgrid_path)
@@ -30,7 +30,7 @@ def extract_alignments(align_dir: Path) -> pd.DataFrame:
                 print(f"⚠️ Missing 'words' or 'phones' tier in {filename}. Skipping.")
                 continue
 
-            for idx, word_interval in enumerate(words_tier):
+            for idx, word_interval in enumerate(words_tier, 1):
                 word_text = word_interval.text.strip()
                 word_start, word_end = word_interval.xmin, word_interval.xmax
 
@@ -52,6 +52,8 @@ def extract_alignments(align_dir: Path) -> pd.DataFrame:
                     }
                 )
 
+            num_words += idx
+
         except Exception as e:
             print(f"⚠️ Error processing {textgrid_path}: {e}")
 
@@ -64,7 +66,10 @@ def extract_alignments(align_dir: Path) -> pd.DataFrame:
         print(f"⚠️ No valid alignments extracted from {align_dir}.")
         return pd.DataFrame()
 
+    print(f"Total words processed: {num_words}")
     alignments_df = pd.DataFrame(alignment_records)
+    alignments_df.to_csv(align_dir / "alignments.csv")
+    print(f"Stored alignments to {align_dir / 'alignments.csv'}")
 
     return alignments_df
 
@@ -149,6 +154,6 @@ if __name__ == "__main__":
 
     alignments_df = extract_alignments(args.align_dir)
 
-    match_to_feat_paths(
-        args.gamma, args.layer, alignments_df, args.feat_dir, args.out_path
-    )
+    # match_to_feat_paths(
+    #     args.gamma, args.layer, alignments_df, args.feat_dir, args.out_path
+    # )

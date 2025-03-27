@@ -1,42 +1,95 @@
 import argparse
 from pathlib import Path
-
-import dataclasses
-import re
-import itertools
-from typing import Iterable, List, Tuple
-import statistics
-
-import editdistance
-from intervaltree import IntervalTree, Interval
-from textgrid import TextGrid, IntervalTier
-from collections import Counter
 from convert_partition import get_partition_path
+from intervaltree import Interval
+import pandas as pd
+import re
+from collections import defaultdict, Counter
+from intervaltree import IntervalTree
+import editdistance
+from typing import Iterable, Tuple
+import statistics
+import itertools
 
 
-@dataclasses.dataclass(frozen=True)
-class Fragment:
-    speaker: str
-    interval: Interval
+def clean_phones(dirty_phones: str):
+    return tuple(
+        re.sub(r"[012]", "", phn).lower()
+        for phn in str(dirty_phones).split(",")
+        if phn.strip() not in {"sil", "sp", "", "spn"}
+    )
 
 
-@dataclasses.dataclass(frozen=True)
-class Transcription:
-    intervals: List[Interval]
-
-    @property
-    def tokens(self) -> Tuple[str, ...]:
-        return tuple(
-            interval.data
-            for interval in self.intervals
-            if interval.data != "sil"
-            and interval.data != "sp"
-            and interval.data != "spn"
+def convert_to_intervals(align_df: pd.DataFrame):
+    fragments = []
+    non_silence_fragments = 0
+    dirty_fragments = []
+    for _, row in align_df.iterrows():
+        speaker = row["filename"]
+        start_time = row["word_start"]
+        end_time = row["word_end"]
+        phones = clean_phones(row["phones"])
+        word = row["text"]
+        if len(phones) > 0:
+            non_silence_fragments += 1
+        else:
+            dirty_fragments.append(
+                (speaker, Interval(float(start_time), float(end_time)), row["phones"])
+            )
+        fragments.append(
+            (speaker, Interval(float(start_time), float(end_time)), phones, word)
         )
 
-    @property
-    def bounds(self) -> Interval:
-        return Interval(self.intervals[0].begin, self.intervals[-1].end)
+    return fragments, non_silence_fragments, dirty_fragments
+
+
+def build_speaker_trees(gold_fragments):
+    trees = defaultdict(IntervalTree)
+    for speaker, interval, phones, word in gold_fragments:
+        trees[speaker].addi(interval.begin, interval.end, (phones, word))
+    return trees
+
+
+def check_boundary(gold: Interval, disc: Interval) -> bool:
+    if gold.contains_interval(disc):
+        return True
+
+    gold_duration = round(gold.end - gold.begin, 2)
+    overlap_duration = round(gold.overlap_size(disc), 2)
+    overlap_percentage = overlap_duration / gold_duration if gold_duration > 0 else 0
+
+    duration_condition = gold_duration >= 0.06 and overlap_duration >= 0.03
+    percentage_condition = gold_duration < 0.06 and overlap_percentage > 0.5
+    return duration_condition or percentage_condition
+
+
+def transcribe(
+    discovered_fragments: list[tuple[str, Interval, int]],
+    trees: dict[str, IntervalTree],
+) -> list[tuple[str, Interval, tuple[str, ...], str]]:
+    enriched_fragments = []
+
+    for speaker, disc_interval, cluster in discovered_fragments:
+        match_found = False
+        if speaker in trees:
+            overlaps = trees[speaker].overlap(disc_interval.begin, disc_interval.end)
+            for match in overlaps:
+                gold_interval = Interval(match.begin, match.end)
+                phones, word = match.data
+                match_found = True
+
+                if check_boundary(gold_interval, disc_interval):
+                    # match_found = True
+                    if len(phones) > 0:
+                        enriched_fragments.append(
+                            (cluster, speaker, disc_interval, phones, word)
+                        )
+
+                    break
+        if not match_found:
+            print(f"No match found for {speaker} at {disc_interval}")
+
+    return enriched_fragments
 
 
 def distance(p: Tuple[str, ...], q: Tuple[str, ...]) -> float:
@@ -45,50 +98,42 @@ def distance(p: Tuple[str, ...], q: Tuple[str, ...]) -> float:
 
 
 def ned(
-    discovered: Iterable[Tuple[Fragment, int, Transcription]],
-    out_path: Path = Path("ned_output.txt"),
-) -> float:
-    discovered = sorted(discovered, key=lambda x: x[1])
+    discovered_transcriptions: Iterable[
+        Tuple[int, str, Interval, Tuple[str, ...], str]
+    ],
+    out_path: Path,
+):
+    sorted_transcriptions = sorted(discovered_transcriptions, key=lambda x: x[0])
     overall_distances = []
     with open(out_path, "w") as f:
-        all_words = 0
-        silences = 0
-        for cluster_id, group in itertools.groupby(discovered, key=lambda x: x[1]):
+        for cluster_id, group in itertools.groupby(
+            sorted_transcriptions, key=lambda x: x[0]
+        ):
             group_list = list(group)
-            all_words += len(group_list)
-            tokens_list = [x[2].tokens for x in group_list]
-            for x_tokens in tokens_list:
-                if len(x_tokens) == 0:
-                    silences += 1
-
-            token_counter = Counter(tokens_list)
+            phones_list = [x[3] for x in group_list]
 
             # Write cluster summary
             f.write(f"\n{'-' * 60}\n")
-            f.write(f"🧩 Cluster {cluster_id} | Size: {len(tokens_list)}\n")
+            f.write(f"🧩 Cluster {cluster_id} | Size: {len(phones_list)}\n")
             f.write(f"{'-' * 60}\n")
 
+            token_counter = Counter(phones_list)
             for tokens, count in token_counter.most_common():
-                tokens = [token for token in tokens if token != ""]
-                if len(tokens) < 1:
-                    f.write("❗❗ SILENCE\n")
-                    continue
                 token_str = " ".join(tokens)
-
                 f.write(f"{token_str:<30} → {count} times\n")
+
             if len(group_list) < 2:
                 continue
 
             cluster_distances = []
             for p, q in itertools.combinations(group_list, 2):
-                d = distance(p[2].tokens, q[2].tokens)
+                d = distance(p[3], q[3])
 
                 cluster_distances.append(d)
 
             if cluster_distances:
                 avg_cluster_ned = statistics.mean(cluster_distances)
                 overall_distances.extend(cluster_distances)
-
                 f.write(f"→ Avg NED for Cluster {cluster_id}: {avg_cluster_ned:.4f}\n")
                 f.write(f"{'=' * 60}\n")
 
@@ -98,70 +143,22 @@ def ned(
         else:
             overall_avg = 0.0
             f.write("\n⚠️ No valid clusters with multiple elements found.\n")
-    f.close()
-    print(
-        f"All words: {all_words}, Silences: {silences} === Actual words: {all_words - silences}"
-    )
-    print(f"✅ NED report written to: {out_path}")
+    print(f"✅ NED report for [NED = {overall_avg * 100:.3f}%] written to: {out_path}")
     return overall_avg
 
 
-def tokens(
-    gold: Iterable[Fragment],
-    disc: Iterable[Fragment],
-) -> Tuple[float, float, float]:
-    gold_fragments = set(gold)
-    disc_fragments = set(disc)
-    intersection = gold_fragments & disc_fragments
-    precision = len(intersection) / len(disc_fragments)
-    recall = len(intersection) / len(gold_fragments)
-    fscore = 2 * (precision * recall) / (precision + recall)
-    return precision, recall, fscore
+def convert_dirty_fragments_to_csv(dirty_fragments, save_path):
+    filenames = [filename for filename, _, _ in dirty_fragments]
+    starts = [interval.begin for _, interval, _ in dirty_fragments]
+    ends = [interval.end for _, interval, _ in dirty_fragments]
+    phones = [phone for _, _, phone in dirty_fragments]
 
-
-def check_boundary(gold: Interval, disc: Interval) -> bool:
-    if gold.contains_interval(disc):
-        return True
-
-    gold_duration = round(gold.end - gold.begin, 2)
-    overlap_duration = round(gold.overlap_size(disc), 2)
-    overlap_percentage = overlap_duration / gold_duration
-    duration_condition = gold_duration >= 0.06 and overlap_duration >= 0.03
-    percentage_condition = gold_duration < 0.06 and overlap_percentage > 0.5
-    return duration_condition or percentage_condition
-
-
-def treeify(grid: TextGrid) -> IntervalTree:
-    intervals = [
-        (interval.minTime, interval.maxTime, re.sub("\d", "", interval.mark))
-        for interval in grid.tiers[1]
-    ]
-    return IntervalTree.from_tuples(intervals)
-
-
-def words(grid: TextGrid, tree: IntervalTree) -> List[Transcription]:
-    overlaps = [
-        tree.overlap(interval.minTime, interval.maxTime)
-        for interval in grid.tiers[0]
-        if interval.mark != "<eps>"
-    ]
-    overlaps = [
-        sorted(intervals, key=lambda x: x.begin)
-        for intervals in overlaps
-        if all(interval.data not in ["sp", "spn", "sil"] for interval in intervals)
-    ]
-    overlaps = [Transcription(intervals) for intervals in overlaps]
-    return overlaps
-
-
-def transcribe(fragment: Fragment, tree: IntervalTree) -> Transcription:
-    transcription = sorted(tree.overlap(fragment.interval), key=lambda x: x.begin)
-    transcription = [
-        interval
-        for interval in transcription
-        if check_boundary(interval, fragment.interval)
-    ]
-    return Transcription(transcription)
+    df = pd.DataFrame(
+        {"filename": filenames, "start": starts, "end": ends, "phones": phones},
+        columns=["filename", "start", "end", "phones"],
+    )
+    df.to_csv(save_path, index=False)
+    print(f"Saved dirty fragments to {save_path}")
 
 
 if __name__ == "__main__":
@@ -183,19 +180,11 @@ if __name__ == "__main__":
         type=Path,
     )
     parser.add_argument(
-        "--alignment_format",
-        metavar="--alignment-format",
-        help="extension of the alignment files.",
-        default=".TextGrid",
-        type=str,
-    )
-    parser.add_argument(
         "--override",
         help="To override the normal path",
         default=None,
         type=Path,
     )
-
     args = parser.parse_args()
     if args.override:
         print(f"Use override path: {args.override}")
@@ -209,66 +198,43 @@ if __name__ == "__main__":
             args.output_dir / str(args.gamma) / str(args.layer) / f"{resolution:.6f}"
         )
     files = list_dir.rglob("*.list")
-    fragments = []
+    discovered_fragments = []
     for file in files:
         with open(file, "r") as f:
             start_time = 0.0
             for line in f:
-                if len(line.split(" ")) == 2:  # end_time class
+                if len(line.split(" ")) == 2:
                     end_time, cluster = line.split(" ")
                     speaker = file.stem
-                    fragments.append(
+                    discovered_fragments.append(
                         (
                             speaker,
                             Interval(float(start_time), float(end_time)),
                             int(cluster),
                         )
                     )
+
                     start_time = float(end_time)
 
-    disc_fragments = [Fragment(speaker, interval) for speaker, interval, _ in fragments]
-    disc_clusters = [cluster for _, _, cluster in fragments]
-
-    print("Number of clusters:", len(set(disc_clusters)))
-
-    grids = {}
-    files = args.align_dir.rglob("**/*" + args.alignment_format)
-    for file in files:  # alignment files
-        if args.alignment_format == ".TextGrid":
-            grids[file.stem] = TextGrid.fromFile(file)
-        elif args.alignment_format == ".txt":
-            with open(file, "r") as f:
-                grids[file.stem] = TextGrid()
-                interval_tier = IntervalTier(name="phones")
-                for line in f:
-                    line = line.split()
-                    interval_tier.add(float(line[0]), float(line[1]), line[2])
-                grids[file.stem].append(interval_tier)
-
-    trees = {speaker: treeify(grid) for speaker, grid in grids.items()}
-
-    disc_transcriptions = [
-        transcribe(fragment, trees[fragment.speaker]) for fragment in disc_fragments
-    ]
-
-    disc_tokens = [
-        " ".join(transcription.tokens) for transcription in disc_transcriptions
-    ]
-
-    gold_words = {
-        speaker: words(grids[speaker], trees[speaker]) for speaker in grids.keys()
-    }
-    gold_fragments = [
-        Fragment(speaker, word.bounds)
-        for speaker, words in gold_words.items()
-        for word in words
-    ]
-    gold_transcriptions = [word for words in gold_words.values() for word in words]
+    discovered_clusters = [cluster for _, _, cluster in discovered_fragments]
 
     print(
-        "NED",
-        ned(
-            zip(disc_fragments, disc_clusters, disc_transcriptions),
-            list_dir / "00_ned_output.txt",
-        ),
+        f"Number of discovered clusters: {len(set(discovered_clusters))}, Number of discovered 'words': {len(discovered_fragments)}"
     )
+
+    alignment_df = pd.read_csv(args.align_dir / "alignments.csv")
+    gold_fragments, total_non_silence, dirty_fragments = convert_to_intervals(
+        alignment_df
+    )
+    print(f"Dirty fragments: {len(dirty_fragments)}, ex: {dirty_fragments[0]}")
+
+    convert_dirty_fragments_to_csv(dirty_fragments, "output/dirty_fragments.csv")
+    trees = build_speaker_trees(gold_fragments)
+
+    discovered_transcriptions = transcribe(discovered_fragments, trees)
+    print(f"Example transcription: {discovered_transcriptions[0]}")
+    print(
+        f"Correct number of tokens (non-silence fragments): {'YES' if len(discovered_transcriptions) == total_non_silence else 'NO'} [{total_non_silence}|{len(discovered_transcriptions)}]"
+    )
+
+    # ned_value = ned(discovered_transcriptions, list_dir / "00_ned.txt")
