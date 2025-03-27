@@ -1,4 +1,4 @@
-GAMMAS=(0.01 0.1 0.15 0.2)  
+GAMMAS=(0.0 0.0001 0.001)  
 LAYER=7
 ALIGNMENTS_DIR="librispeech/alignments"
 AUDIO_DIR="librispeech/audio"

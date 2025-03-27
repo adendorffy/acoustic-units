@@ -112,7 +112,7 @@ def cluster(
                 "cluster": best_partition.membership,
             }
         )
-        ouput_path = output_dir / f"partition_r{best_res:.6f}.csv"
+        ouput_path = output_dir / f"t{threshold}_partition_r{best_res:.6f}.csv"
         best_partition_df.to_csv(ouput_path, index=False)
 
         print(f"Partition saved to {ouput_path}", flush=True)

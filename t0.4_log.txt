@@ -1,0 +1,15 @@
+Processing Gamma: 0.0
+Step 1: Encoding features for Gamma=0.0, Layer=7
+Processing 2703 audio files...
+Total words: 65840
+Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
+Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
+Using cache found in /home/danel/.cache/torch/hub/bshall_hubert_main
+🟢 Progress: 0% (1/2703 files)
+🟢 Progress: 10% (271/2703 files)
+🟢 Progress: 20% (541/2703 files)
+🟢 Progress: 30% (811/2703 files)
+🟢 Progress: 40% (1082/2703 files)
+🟢 Progress: 50% (1352/2703 files)
+🟢 Progress: 60% (1622/2703 files)
+🟢 Progress: 70% (1893/2703 files)

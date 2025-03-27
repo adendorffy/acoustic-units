@@ -62,4 +62,4 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    convert_to_list(args.gamma, args.layer, args.output_dir)
+    convert_to_list(args.gamma, args.layer, args.threshold, args.output_dir)
