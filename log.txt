@@ -6,3 +6,353 @@ Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
 Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
 Using cache found in /home/danel/.cache/torch/hub/bshall_hubert_main
 🟢 Progress: 0% (1/2703 files)
+🟢 Progress: 10% (271/2703 files)
+🟢 Progress: 20% (541/2703 files)
+🟢 Progress: 30% (811/2703 files)
+🟢 Progress: 40% (1082/2703 files)
+🟢 Progress: 50% (1352/2703 files)
+🟢 Progress: 60% (1622/2703 files)
+🟢 Progress: 70% (1893/2703 files)
+🟢 Progress: 80% (2163/2703 files)
+🟢 Progress: 90% (2433/2703 files)
+🟢 Progress: 100% (2703/2703 files)
+
+✅ Processing complete!
+Step 2: Computing pairwise distances for Gamma=0.01, Layer=7
+Loading 65840 Features..
+Pairs: 2167419880, Batches: 434
+🟢 Progress: 0% (0/434 files)
+🟢 Progress: 5% (22/434 files)
+🟢 Progress: 10% (44/434 files)
+🟢 Progress: 15% (66/434 files)
+🟢 Progress: 20% (87/434 files)
+🟢 Progress: 25% (109/434 files)
+🟢 Progress: 30% (131/434 files)
+🟢 Progress: 35% (152/434 files)
+🟢 Progress: 40% (174/434 files)
+🟢 Progress: 45% (196/434 files)
+🟢 Progress: 50% (217/434 files)
+🟢 Progress: 55% (239/434 files)
+🟢 Progress: 60% (261/434 files)
+🟢 Progress: 65% (283/434 files)
+🟢 Progress: 70% (304/434 files)
+🟢 Progress: 75% (326/434 files)
+🟢 Progress: 80% (348/434 files)
+🟢 Progress: 85% (369/434 files)
+🟢 Progress: 90% (391/434 files)
+🟢 Progress: 95% (413/434 files)
+All batches processed. Results saved in output/distances/0.01/7
+Step 3: Clustering for Gamma=0.01, Layer=7
+Get total_size for output/distances/0.01/7 [total_chunks: 434]
+🧮 Total pairwise entries: 2167419880, Sample size: 65840
+🟢 Progress: 0% (0/434 chunks)
+🟢 Progress: 5% (22/434 chunks)
+🟢 Progress: 10% (44/434 chunks)
+🟢 Progress: 15% (66/434 chunks)
+🟢 Progress: 20% (87/434 chunks)
+🟢 Progress: 25% (109/434 chunks)
+🟢 Progress: 30% (131/434 chunks)
+🟢 Progress: 35% (152/434 chunks)
+🟢 Progress: 40% (174/434 chunks)
+🟢 Progress: 45% (196/434 chunks)
+🟢 Progress: 50% (217/434 chunks)
+🟢 Progress: 55% (239/434 chunks)
+🟢 Progress: 60% (261/434 chunks)
+🟢 Progress: 65% (283/434 chunks)
+🟢 Progress: 70% (304/434 chunks)
+🟢 Progress: 75% (326/434 chunks)
+🟢 Progress: 80% (348/434 chunks)
+🟢 Progress: 85% (369/434 chunks)
+🟢 Progress: 90% (391/434 chunks)
+🟢 Progress: 95% (413/434 chunks)
+Graph built and saved to output/0.01/7/graph_t0.4.pkl
+[Iteration 1] res=0.020000, clusters=13258, diff=709
+[Iteration 2] res=0.021000, clusters=13373, diff=594
+[Iteration 3] res=0.021950, clusters=13435, diff=532
+[Iteration 4] res=0.022853, clusters=13531, diff=436
+[Iteration 5] res=0.023710, clusters=13571, diff=396
+[Iteration 6] res=0.024524, clusters=13635, diff=332
+[Iteration 7] res=0.025298, clusters=13682, diff=285
+[Iteration 8] res=0.026033, clusters=13765, diff=202
+[Iteration 9] res=0.026732, clusters=13800, diff=167
+[Iteration 10] res=0.027395, clusters=13831, diff=136
+[Iteration 11] res=0.028025, clusters=13933, diff=34
+[Iteration 12] res=0.028624, clusters=13952, diff=15
+[Iteration 13] res=0.029193, clusters=13957, diff=10
+[Iteration 14] res=0.029733, clusters=14015, diff=48
+[Iteration 15] res=0.029220, clusters=13968, diff=1
+[Iteration 16] res=0.028732, clusters=13966, diff=1
+[Iteration 17] res=0.029195, clusters=13960, diff=7
+[Iteration 18] res=0.029636, clusters=13999, diff=32
+Reversing direction & boosting step size (α → 0.000460).
+[Iteration 19] res=0.030095, clusters=14025, diff=58
+[Iteration 20] res=0.029659, clusters=13990, diff=23
+[Iteration 21] res=0.029243, clusters=13975, diff=8
+[Iteration 22] res=0.028849, clusters=13979, diff=12
+[Iteration 23] res=0.028475, clusters=13934, diff=33
+[Iteration 24] res=0.028830, clusters=13958, diff=9
+[Iteration 25] res=0.029168, clusters=13957, diff=10
+[Iteration 26] res=0.029490, clusters=13993, diff=26
+[Iteration 27] res=0.029185, clusters=13954, diff=13
+[Iteration 28] res=0.029474, clusters=13985, diff=18
+[Iteration 29] res=0.029199, clusters=13961, diff=6
+[Iteration 30] res=0.029461, clusters=13993, diff=26
+[Iteration 31] res=0.029212, clusters=13968, diff=1
+[Iteration 32] res=0.028976, clusters=13980, diff=13
+[Iteration 33] res=0.028752, clusters=13966, diff=1
+[Iteration 34] res=0.028965, clusters=13967, diff=0
+Partition saved to output/0.01/7/partition_r0.028965.csv
+Processing Gamma: 0.1
+Step 1: Encoding features for Gamma=0.1, Layer=7
+Processing 2703 audio files...
+Total words: 65840
+Already encoded audio using gamma = 0.1 at layer 7
+Step 2: Computing pairwise distances for Gamma=0.1, Layer=7
+Loading 65840 Features..
+Pairs: 2167419880, Batches: 434
+🟢 Progress: 0% (0/434 files)
+🟢 Progress: 5% (22/434 files)
+🟢 Progress: 10% (44/434 files)
+🟢 Progress: 15% (66/434 files)
+🟢 Progress: 20% (87/434 files)
+🟢 Progress: 25% (109/434 files)
+🟢 Progress: 30% (131/434 files)
+🟢 Progress: 35% (152/434 files)
+🟢 Progress: 40% (174/434 files)
+🟢 Progress: 45% (196/434 files)
+🟢 Progress: 50% (217/434 files)
+🟢 Progress: 55% (239/434 files)
+🟢 Progress: 60% (261/434 files)
+🟢 Progress: 65% (283/434 files)
+🟢 Progress: 70% (304/434 files)
+🟢 Progress: 75% (326/434 files)
+🟢 Progress: 80% (348/434 files)
+🟢 Progress: 85% (369/434 files)
+🟢 Progress: 90% (391/434 files)
+🟢 Progress: 95% (413/434 files)
+All batches processed. Results saved in output/distances/0.1/7
+Step 3: Clustering for Gamma=0.1, Layer=7
+Loaded precomputed graph from output/0.1/7/graph_t0.4.pkl
+Processing Gamma: 0.15
+Step 1: Encoding features for Gamma=0.15, Layer=7
+Processing 2703 audio files...
+Total words: 65840
+Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
+Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
+Using cache found in /home/danel/.cache/torch/hub/bshall_hubert_main
+🟢 Progress: 0% (1/2703 files)
+🟢 Progress: 10% (271/2703 files)
+🟢 Progress: 20% (541/2703 files)
+🟢 Progress: 30% (811/2703 files)
+🟢 Progress: 40% (1082/2703 files)
+🟢 Progress: 50% (1352/2703 files)
+🟢 Progress: 60% (1622/2703 files)
+🟢 Progress: 70% (1893/2703 files)
+🟢 Progress: 80% (2163/2703 files)
+🟢 Progress: 90% (2433/2703 files)
+🟢 Progress: 100% (2703/2703 files)
+
+✅ Processing complete!
+Step 2: Computing pairwise distances for Gamma=0.15, Layer=7
+Loading 65840 Features..
+Pairs: 2167419880, Batches: 434
+🟢 Progress: 0% (0/434 files)
+🟢 Progress: 5% (22/434 files)
+🟢 Progress: 10% (44/434 files)
+🟢 Progress: 15% (66/434 files)
+🟢 Progress: 20% (87/434 files)
+🟢 Progress: 25% (109/434 files)
+🟢 Progress: 30% (131/434 files)
+🟢 Progress: 35% (152/434 files)
+🟢 Progress: 40% (174/434 files)
+🟢 Progress: 45% (196/434 files)
+🟢 Progress: 50% (217/434 files)
+🟢 Progress: 55% (239/434 files)
+🟢 Progress: 60% (261/434 files)
+🟢 Progress: 65% (283/434 files)
+🟢 Progress: 70% (304/434 files)
+🟢 Progress: 75% (326/434 files)
+🟢 Progress: 80% (348/434 files)
+🟢 Progress: 85% (369/434 files)
+🟢 Progress: 90% (391/434 files)
+🟢 Progress: 95% (413/434 files)
+All batches processed. Results saved in output/distances/0.15/7
+Step 3: Clustering for Gamma=0.15, Layer=7
+Get total_size for output/distances/0.15/7 [total_chunks: 434]
+🧮 Total pairwise entries: 2167419880, Sample size: 65840
+🟢 Progress: 0% (0/434 chunks)
+🟢 Progress: 5% (22/434 chunks)
+🟢 Progress: 10% (44/434 chunks)
+🟢 Progress: 15% (66/434 chunks)
+🟢 Progress: 20% (87/434 chunks)
+🟢 Progress: 25% (109/434 chunks)
+🟢 Progress: 30% (131/434 chunks)
+🟢 Progress: 35% (152/434 chunks)
+🟢 Progress: 40% (174/434 chunks)
+🟢 Progress: 45% (196/434 chunks)
+🟢 Progress: 50% (217/434 chunks)
+🟢 Progress: 55% (239/434 chunks)
+🟢 Progress: 60% (261/434 chunks)
+🟢 Progress: 65% (283/434 chunks)
+🟢 Progress: 70% (304/434 chunks)
+🟢 Progress: 75% (326/434 chunks)
+🟢 Progress: 80% (348/434 chunks)
+🟢 Progress: 85% (369/434 chunks)
+🟢 Progress: 90% (391/434 chunks)
+🟢 Progress: 95% (413/434 chunks)
+Graph built and saved to output/0.15/7/graph_t0.4.pkl
+[Iteration 1] res=0.020000, clusters=12747, diff=1220
+[Iteration 2] res=0.021000, clusters=12873, diff=1094
+[Iteration 3] res=0.021950, clusters=12905, diff=1062
+[Iteration 4] res=0.022853, clusters=13027, diff=940
+[Iteration 5] res=0.023710, clusters=13053, diff=914
+[Iteration 6] res=0.024524, clusters=13127, diff=840
+[Iteration 7] res=0.025298, clusters=13215, diff=752
+[Iteration 8] res=0.026033, clusters=13283, diff=684
+[Iteration 9] res=0.026732, clusters=13300, diff=667
+[Iteration 10] res=0.027395, clusters=13339, diff=628
+[Iteration 11] res=0.028025, clusters=13452, diff=515
+[Iteration 12] res=0.028624, clusters=13485, diff=482
+[Iteration 13] res=0.029193, clusters=13514, diff=453
+[Iteration 14] res=0.029733, clusters=13525, diff=442
+[Iteration 15] res=0.030247, clusters=13538, diff=429
+[Iteration 16] res=0.030734, clusters=13618, diff=349
+[Iteration 17] res=0.031197, clusters=13625, diff=342
+[Iteration 18] res=0.031638, clusters=13687, diff=280
+[Iteration 19] res=0.032056, clusters=13729, diff=238
+[Iteration 20] res=0.032453, clusters=13739, diff=228
+[Iteration 21] res=0.032830, clusters=13734, diff=233
+[Iteration 22] res=0.033189, clusters=13731, diff=236
+[Iteration 23] res=0.033529, clusters=13852, diff=115
+[Iteration 24] res=0.033853, clusters=13873, diff=94
+[Iteration 25] res=0.034160, clusters=13892, diff=75
+[Iteration 26] res=0.034452, clusters=13889, diff=78
+[Iteration 27] res=0.034730, clusters=13891, diff=76
+[Iteration 28] res=0.034993, clusters=13898, diff=69
+[Iteration 29] res=0.035243, clusters=13891, diff=76
+[Iteration 30] res=0.035481, clusters=13919, diff=48
+[Iteration 31] res=0.035707, clusters=13943, diff=24
+[Iteration 32] res=0.035922, clusters=13983, diff=16
+[Iteration 33] res=0.035718, clusters=13994, diff=27
+[Iteration 34] res=0.035524, clusters=13907, diff=60
+[Iteration 35] res=0.035708, clusters=13943, diff=24
+[Iteration 36] res=0.035883, clusters=13973, diff=6
+[Iteration 37] res=0.035717, clusters=13994, diff=27
+[Iteration 38] res=0.035559, clusters=13935, diff=32
+[Iteration 39] res=0.035709, clusters=13943, diff=24
+[Iteration 40] res=0.035852, clusters=13992, diff=25
+[Iteration 41] res=0.035716, clusters=13994, diff=27
+[Iteration 42] res=0.035588, clusters=13922, diff=45
+Reversing direction & boosting step size (α → 0.000134).
+[Iteration 43] res=0.035453, clusters=13910, diff=57
+[Iteration 44] res=0.035581, clusters=13922, diff=45
+[Iteration 45] res=0.035702, clusters=13937, diff=30
+[Iteration 46] res=0.035817, clusters=13969, diff=2
+[Iteration 47] res=0.035708, clusters=13943, diff=24
+[Iteration 48] res=0.035812, clusters=13976, diff=9
+[Iteration 49] res=0.035713, clusters=13932, diff=35
+[Iteration 50] res=0.035807, clusters=13969, diff=2
+Partition saved to output/0.15/7/partition_r0.035817.csv
+Processing Gamma: 0.2
+Step 1: Encoding features for Gamma=0.2, Layer=7
+Processing 2703 audio files...
+Total words: 65840
+Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
+Using cache found in /home/danel/.cache/torch/hub/bshall_dusted_main
+Using cache found in /home/danel/.cache/torch/hub/bshall_hubert_main
+🟢 Progress: 0% (1/2703 files)
+🟢 Progress: 10% (271/2703 files)
+🟢 Progress: 20% (541/2703 files)
+🟢 Progress: 30% (811/2703 files)
+🟢 Progress: 40% (1082/2703 files)
+🟢 Progress: 50% (1352/2703 files)
+🟢 Progress: 60% (1622/2703 files)
+🟢 Progress: 70% (1893/2703 files)
+🟢 Progress: 80% (2163/2703 files)
+🟢 Progress: 90% (2433/2703 files)
+🟢 Progress: 100% (2703/2703 files)
+
+✅ Processing complete!
+Step 2: Computing pairwise distances for Gamma=0.2, Layer=7
+Loading 65840 Features..
+Pairs: 2167419880, Batches: 434
+🟢 Progress: 0% (0/434 files)
+🟢 Progress: 5% (22/434 files)
+🟢 Progress: 10% (44/434 files)
+🟢 Progress: 15% (66/434 files)
+🟢 Progress: 20% (87/434 files)
+🟢 Progress: 25% (109/434 files)
+🟢 Progress: 30% (131/434 files)
+🟢 Progress: 35% (152/434 files)
+🟢 Progress: 40% (174/434 files)
+🟢 Progress: 45% (196/434 files)
+🟢 Progress: 50% (217/434 files)
+🟢 Progress: 55% (239/434 files)
+🟢 Progress: 60% (261/434 files)
+🟢 Progress: 65% (283/434 files)
+🟢 Progress: 70% (304/434 files)
+🟢 Progress: 75% (326/434 files)
+🟢 Progress: 80% (348/434 files)
+🟢 Progress: 85% (369/434 files)
+🟢 Progress: 90% (391/434 files)
+🟢 Progress: 95% (413/434 files)
+All batches processed. Results saved in output/distances/0.2/7
+Step 3: Clustering for Gamma=0.2, Layer=7
+Get total_size for output/distances/0.2/7 [total_chunks: 434]
+🧮 Total pairwise entries: 2167419880, Sample size: 65840
+🟢 Progress: 0% (0/434 chunks)
+🟢 Progress: 5% (22/434 chunks)
+🟢 Progress: 10% (44/434 chunks)
+🟢 Progress: 15% (66/434 chunks)
+🟢 Progress: 20% (87/434 chunks)
+🟢 Progress: 25% (109/434 chunks)
+🟢 Progress: 30% (131/434 chunks)
+🟢 Progress: 35% (152/434 chunks)
+🟢 Progress: 40% (174/434 chunks)
+🟢 Progress: 45% (196/434 chunks)
+🟢 Progress: 50% (217/434 chunks)
+🟢 Progress: 55% (239/434 chunks)
+🟢 Progress: 60% (261/434 chunks)
+🟢 Progress: 65% (283/434 chunks)
+🟢 Progress: 70% (304/434 chunks)
+🟢 Progress: 75% (326/434 chunks)
+🟢 Progress: 80% (348/434 chunks)
+🟢 Progress: 85% (369/434 chunks)
+🟢 Progress: 90% (391/434 chunks)
+🟢 Progress: 95% (413/434 chunks)
+Graph built and saved to output/0.2/7/graph_t0.4.pkl
+[Iteration 1] res=0.020000, clusters=12741, diff=1226
+[Iteration 2] res=0.021000, clusters=12877, diff=1090
+[Iteration 3] res=0.021950, clusters=12909, diff=1058
+[Iteration 4] res=0.022853, clusters=13009, diff=958
+[Iteration 5] res=0.023710, clusters=13055, diff=912
+[Iteration 6] res=0.024524, clusters=13121, diff=846
+[Iteration 7] res=0.025298, clusters=13228, diff=739
+[Iteration 8] res=0.026033, clusters=13289, diff=678
+[Iteration 9] res=0.026732, clusters=13281, diff=686
+[Iteration 10] res=0.027395, clusters=13331, diff=636
+[Iteration 11] res=0.028025, clusters=13441, diff=526
+[Iteration 12] res=0.028624, clusters=13476, diff=491
+[Iteration 13] res=0.029193, clusters=13490, diff=477
+[Iteration 14] res=0.029733, clusters=13496, diff=471
+[Iteration 15] res=0.030247, clusters=13539, diff=428
+[Iteration 16] res=0.030734, clusters=13603, diff=364
+[Iteration 17] res=0.031197, clusters=13623, diff=344
+[Iteration 18] res=0.031638, clusters=13691, diff=276
+[Iteration 19] res=0.032056, clusters=13693, diff=274
+[Iteration 20] res=0.032453, clusters=13700, diff=267
+[Iteration 21] res=0.032830, clusters=13705, diff=262
+[Iteration 22] res=0.033189, clusters=13720, diff=247
+[Iteration 23] res=0.033529, clusters=13850, diff=117
+[Iteration 24] res=0.033853, clusters=13861, diff=106
+[Iteration 25] res=0.034160, clusters=13863, diff=104
+[Iteration 26] res=0.034452, clusters=13883, diff=84
+[Iteration 27] res=0.034730, clusters=13879, diff=88
+[Iteration 28] res=0.034993, clusters=13906, diff=61
+[Iteration 29] res=0.035243, clusters=13911, diff=56
+[Iteration 30] res=0.035481, clusters=13920, diff=47
+[Iteration 31] res=0.035707, clusters=13910, diff=57
+[Iteration 32] res=0.035922, clusters=13949, diff=18
+[Iteration 33] res=0.036126, clusters=13967, diff=0
+Partition saved to output/0.2/7/partition_r0.036126.csv
+🎉 All gamma values processed!

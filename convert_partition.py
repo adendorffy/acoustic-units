@@ -3,12 +3,12 @@ import pandas as pd
 import argparse
 
 
-def get_partition_path(gamma: float, layer: int, output_dir: Path):
+def get_partition_path(gamma: float, layer: int, threshold: float, output_dir: Path):
     base_dir = output_dir / str(gamma) / str(layer)
 
     print(f"🔍 Searching for partition in: {base_dir}")
 
-    matches = list(base_dir.glob("partition_r*.csv"))
+    matches = list(base_dir.glob(f"t{threshold}_partition_r*.csv"))
 
     if not matches:
         print("❌ No partition file found. First calculate partition.")
@@ -23,14 +23,14 @@ def get_partition_path(gamma: float, layer: int, output_dir: Path):
     return matches[0], resolution
 
 
-def convert_to_list(gamma: float, layer: int, align_dir: Path, output_dir: Path):
-    partition_path, resolution = get_partition_path(gamma, layer, output_dir)
+def convert_to_list(gamma: float, layer: int, threshold: float, output_dir: Path):
+    partition_path, resolution = get_partition_path(gamma, layer, threshold, output_dir)
     partition_df = pd.read_csv(partition_path)
 
     out_dir = output_dir / str(gamma) / str(layer) / str(resolution)
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    align_df = pd.read_csv(align_dir / "alignments.csv")
+    align_df = pd.read_csv(output_dir / "alignments_aligned_to_features.csv")
     node_to_cluster = dict(zip(partition_df["node"], partition_df["cluster"]))
 
     print("Converting output to .list format...", flush=True)
@@ -38,12 +38,12 @@ def convert_to_list(gamma: float, layer: int, align_dir: Path, output_dir: Path)
         output_file = out_dir / f"{filename}.list"
         with open(output_file, "w") as f:
             for _, row in group_df.iterrows():
-                word_end = row["word_end"]
+                word_end = row["end"]
                 global_node_id = row.name
 
                 cluster_id = node_to_cluster.get(global_node_id, -1)
                 f.write(f"{word_end:.2f} {cluster_id}\n")
-    print(f".list format output saved in {output_dir}")
+    print(f".list format output saved in {out_dir}")
 
 
 if __name__ == "__main__":
@@ -54,14 +54,12 @@ if __name__ == "__main__":
         "gamma", type=float, help="Gamma value used for feature extraction."
     )
     parser.add_argument("layer", type=int, help="Layer number for processing.")
+    parser.add_argument("threshold", type=float, help="Threshold at whic to extract.")
 
     parser.add_argument(
         "output_dir", type=Path, help="Path to the directory where output is stored."
     )
-    parser.add_argument(
-        "align_dir", type=Path, help="Path to the directory the alignments are found."
-    )
 
     args = parser.parse_args()
 
-    convert_to_list(args.gamma, args.layer, args.align_dir, args.output_dir)
+    convert_to_list(args.gamma, args.layer, args.output_dir)

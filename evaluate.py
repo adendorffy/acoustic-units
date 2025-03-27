@@ -10,6 +10,7 @@ import statistics
 import editdistance
 from intervaltree import IntervalTree, Interval
 from textgrid import TextGrid, IntervalTier
+from collections import Counter
 
 
 @dataclasses.dataclass(frozen=True)
@@ -28,8 +29,8 @@ class Transcription:
             interval.data
             for interval in self.intervals
             if interval.data != "sil"
-            and interval.data != "spn"
             and interval.data != "sp"
+            and interval.data != "spn"
         )
 
     @property
@@ -42,14 +43,66 @@ def distance(p: Tuple[str, ...], q: Tuple[str, ...]) -> float:
     return editdistance.eval(p, q) / length if length > 0 else 1
 
 
-def ned(discovered: Iterable[Tuple[Fragment, int, Transcription]]) -> float:
+def ned(
+    discovered: Iterable[Tuple[Fragment, int, Transcription]],
+    out_path: Path = Path("ned_output.txt"),
+) -> float:
     discovered = sorted(discovered, key=lambda x: x[1])
-    distances = [
-        distance(p[2].tokens, q[2].tokens)
-        for _, group in itertools.groupby(discovered, key=lambda x: x[1])
-        for p, q in itertools.combinations(group, 2)
-    ]
-    return statistics.mean(distances)
+    overall_distances = []
+    with open(out_path, "w") as f:
+        all_words = 0
+        silences = 0
+        for cluster_id, group in itertools.groupby(discovered, key=lambda x: x[1]):
+            group_list = list(group)
+            all_words += len(group_list)
+            tokens_list = [x[2].tokens for x in group_list]
+            for x_tokens in tokens_list:
+                if len(x_tokens) < 1:
+                    silences += 1
+
+            token_counter = Counter(tokens_list)
+
+            # Write cluster summary
+            f.write(f"\n{'-' * 60}\n")
+            f.write(f"🧩 Cluster {cluster_id} | Size: {len(tokens_list)}\n")
+            f.write(f"{'-' * 60}\n")
+
+            for tokens, count in token_counter.most_common():
+                tokens = [token for token in tokens if token != ""]
+                if len(tokens) < 1:
+                    f.write("❗❗ SILENCE\n")
+                    continue
+                token_str = " ".join(tokens)
+
+                f.write(f"{token_str:<30} → {count} times\n")
+            if len(group_list) < 2:
+                continue
+
+            cluster_distances = []
+            for p, q in itertools.combinations(group_list, 2):
+                d = distance(p[2].tokens, q[2].tokens)
+
+                cluster_distances.append(d)
+
+            if cluster_distances:
+                avg_cluster_ned = statistics.mean(cluster_distances)
+                overall_distances.extend(cluster_distances)
+
+                f.write(f"→ Avg NED for Cluster {cluster_id}: {avg_cluster_ned:.4f}\n")
+                f.write(f"{'=' * 60}\n")
+
+        if overall_distances:
+            overall_avg = statistics.mean(overall_distances)
+            f.write(f"\n🔍 Overall NED across all clusters: {overall_avg:.4f}\n")
+        else:
+            overall_avg = 0.0
+            f.write("\n⚠️ No valid clusters with multiple elements found.\n")
+    f.close()
+    print(
+        f"All words: {all_words}, Silences: {silences} === Actual words: {all_words - silences}"
+    )
+    print(f"✅ NED report written to: {out_path}")
+    return overall_avg
 
 
 def tokens(
@@ -94,7 +147,7 @@ def words(grid: TextGrid, tree: IntervalTree) -> List[Transcription]:
     overlaps = [
         sorted(intervals, key=lambda x: x.begin)
         for intervals in overlaps
-        if all(interval.data not in ["sp", "spn"] for interval in intervals)
+        if all(interval.data not in ["sp", "spn", "sil"] for interval in intervals)
     ]
     overlaps = [Transcription(intervals) for intervals in overlaps]
     return overlaps
@@ -190,4 +243,10 @@ if __name__ == "__main__":
     ]
     gold_transcriptions = [word for words in gold_words.values() for word in words]
 
-    print("NED", ned(zip(disc_fragments, disc_clusters, disc_transcriptions)))
+    print(
+        "NED",
+        ned(
+            zip(disc_fragments, disc_clusters, disc_transcriptions),
+            args.disc_path / "ned_output.txt",
+        ),
+    )

@@ -5,6 +5,7 @@ AUDIO_DIR="librispeech/audio"
 FEATURES_DIR="features"
 OUTPUT_DIR="output"
 NUM_CLUSTERS=13967
+THRESHOLD=0.4
 
 
 for GAMMA in "${GAMMAS[@]}"; do
@@ -17,17 +18,23 @@ for GAMMA in "${GAMMAS[@]}"; do
     python calculate_distances.py "$GAMMA" "$LAYER" "$FEATURES_DIR" "$OUTPUT_DIR"
 
     echo "Step 3: Clustering for Gamma=$GAMMA, Layer=$LAYER"
-    python cluster.py "$GAMMA" "$LAYER" "$OUTPUT_DIR" --num_clusters "$NUM_CLUSTERS"
+    
+    echo "a) Build Graph"
+    python build_graph.py "$GAMMA" "$LAYER" "$OUTPUT_DIR" --threshold "$THRESHOLD"
 
-    # echo "Step 4: Evaluating clustering results for Gamma=$GAMMA, Layer=$LAYER"
+    echo "b) Calculate Partition"
+    python cluster.py "$GAMMA" "$LAYER" "$OUTPUT_DIR" --num_clusters "$NUM_CLUSTERS" --threshold "$THRESHOLD" 
 
-    # echo "a) Extract alignmentsa and align to feature paths"
-    # python extract_alignment.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" "$FEATURES_DIR" "$OUTPUT_DIR"
+    echo "Step 4: Evaluating clustering results for Gamma=$GAMMA, Layer=$LAYER"
 
-    # echo "b) Convert partition to .list files"
-    # python convert_partition.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" 
+    echo "a) Extract alignments and align to feature paths"
+    python extract_alignment.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" "$FEATURES_DIR" "$OUTPUT_DIR"
 
+    echo "b) Convert partition to .list files"
+    python convert_partition.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" "$OUTPUT_DIR" 
 
+    echo "c) Calculate NED for .list output files"
+    python evaluate.py "$OUTPUT_DIR/$GAMMA/$LAYER" "$ALIGNMENTS_DIR" # NEED TO FIX THIS WEIRD /RESOLUTION PROBLEM
 
 done
 

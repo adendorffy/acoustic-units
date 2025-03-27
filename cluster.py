@@ -1,59 +1,12 @@
 import argparse
 import pickle
 from pathlib import Path
-from typing import Tuple
 
-import numpy as np
 import leidenalg as la
 import igraph as ig
 import pandas as pd
 
 DEV_CLEAN_CLUSTERS: int = 13_967
-
-
-def get_total_size(dist_dir: Path) -> int:
-    total_chunks = sum(1 for _ in dist_dir.rglob("vals_*.npy"))
-    print(f"Get total_size for {dist_dir} [total_chunks: {total_chunks}]")
-    total_size = sum(
-        np.load(dist_dir / f"vals_{i}.npy").shape[0] for i in range(total_chunks)
-    )
-    return total_size, total_chunks
-
-
-def get_n(length_list: int) -> int:
-    return int((1 + np.sqrt(1 + 8 * length_list)) // 2)
-
-
-def build_graph_from_chunks(dist_dir: Path, threshold: float = 0.4) -> ig.Graph:
-    total_size, total_chunks = get_total_size(dist_dir)
-    sample_size = get_n(total_size)
-    print(f"🧮 Total pairwise entries: {total_size}, Sample size: {sample_size}")
-
-    g = ig.Graph()
-    g.add_vertices(sample_size)
-    prev_progress = -1
-
-    for i in range(total_chunks):
-        rows = np.load(dist_dir / f"rows_{i}.npy")
-        cols = np.load(dist_dir / f"cols_{i}.npy")
-        vals = np.load(dist_dir / f"vals_{i}.npy")
-
-        mask = vals < threshold
-        edges = list(zip(rows[mask], cols[mask]))
-        weights = vals[mask].astype(float)
-
-        weights = np.where(weights > 0, weights, 1e-10).tolist()
-
-        if edges:
-            g.add_edges(edges)
-            g.es[-len(weights) :].set_attribute_values("weight", weights)
-
-        progress = int((i / total_chunks) * 100)
-        if progress % 5 == 0 and progress > prev_progress:
-            print(f"🟢 Progress: {progress}% ({i}/{total_chunks} chunks)", flush=True)
-            prev_progress = progress
-
-    return g
 
 
 def adaptive_res_search(
@@ -66,7 +19,8 @@ def adaptive_res_search(
     patience: int = 3,
     min_alpha: float = 1e-5,
     alpha_boost: float = 1.1,
-) -> Tuple[float]:
+    diff_tol: int = 2,
+):
     res = initial_res
     best_res, best_partition = res, None
     min_diff = float("inf")
@@ -93,7 +47,7 @@ def adaptive_res_search(
             flush=True,
         )
 
-        if diff == 0:
+        if min_diff < diff_tol:
             break
 
         grad = 1 if actual_clusters < num_clusters else -1
@@ -107,7 +61,7 @@ def adaptive_res_search(
 
         if worsening_steps >= patience:
             print(
-                f"Reversing direction & boosting step size (α → {alpha * alpha_boost:.6f}).",
+                f"Reversing direction & boosting step size (\u03b1 → {alpha * alpha_boost:.6f}).",
                 flush=True,
             )
             grad *= -1
@@ -135,27 +89,18 @@ def cluster(
     num_clusters: int = DEV_CLEAN_CLUSTERS,
 ):
     output_dir = out_dir / str(gamma) / str(layer)
-    dist_dir = out_dir / "distances" / str(gamma) / str(layer)
+    graph_path = output_dir / f"graph_t{threshold}.pkl"
 
-    if not dist_dir.exists():
-        print(f"{dist_dir} does not exist. First calculate distances.")
+    if not graph_path.exists():
+        print(f"{graph_path} does not exist. Please run the graph building step first.")
         return
 
-    output_dir.mkdir(exist_ok=True, parents=True)
+    with open(graph_path, "rb") as f:
+        g = pickle.load(f)
+    print(f"Loaded graph from {graph_path}")
 
-    graph_path = output_dir / f"graph_t{threshold}.pkl"
     partition_pattern = output_dir.glob("partition_r*.csv")
     partition_files = list(partition_pattern)
-
-    if graph_path.exists():
-        with open(graph_path, "rb") as f:
-            g = pickle.load(f)
-        print(f"Loaded precomputed graph from {graph_path}")
-    else:
-        g = build_graph_from_chunks(dist_dir, threshold)
-        with open(graph_path, "wb") as f:
-            pickle.dump(g, f)
-        print(f"Graph built and saved to {graph_path}", flush=True)
 
     if not partition_files:
         best_res, best_partition = adaptive_res_search(
@@ -170,10 +115,7 @@ def cluster(
         ouput_path = output_dir / f"partition_r{best_res:.6f}.csv"
         best_partition_df.to_csv(ouput_path, index=False)
 
-        print(
-            f"Partition saved to {str(output_dir) + f'/partition_r{best_res:.6f}.csv'}",
-            flush=True,
-        )
+        print(f"Partition saved to {ouput_path}", flush=True)
         return best_res, best_partition_df
     else:
         res_partitions = [
@@ -188,32 +130,20 @@ def cluster(
 
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Run graph-based clustering on text data."
-    )
+    parser = argparse.ArgumentParser(description="Run clustering on precomputed graph.")
     parser.add_argument("gamma", type=float, help="Gamma value for processing.")
     parser.add_argument("layer", type=int, help="Layer number for processing.")
-    parser.add_argument(
-        "out_dir", type=Path, help="Path to the directory to store output."
-    )
-    parser.add_argument(
-        "--num_clusters",
-        default=DEV_CLEAN_CLUSTERS,
-        type=int,
-        help="Target number of clusters.",
-    )
-    parser.add_argument(
-        "--threshold",
-        default=0.4,
-        type=float,
-        help="Distance threshold for graph edges.",
-    )
-
+    parser.add_argument("out_dir", type=Path, help="Output directory base path.")
+    parser.add_argument("--num_clusters", default=DEV_CLEAN_CLUSTERS, type=int)
+    parser.add_argument("--threshold", default=0.4, type=float)
+    parser.add_argument("--resolution", default=0.02, type=float)
     args = parser.parse_args()
+
     cluster(
         args.gamma,
         args.layer,
         args.out_dir,
-        args.threshold,
+        threshold=args.threshold,
         num_clusters=args.num_clusters,
+        initial_res=args.resolution,
     )
