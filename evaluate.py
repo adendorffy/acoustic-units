@@ -57,7 +57,7 @@ def ned(
             all_words += len(group_list)
             tokens_list = [x[2].tokens for x in group_list]
             for x_tokens in tokens_list:
-                if len(x_tokens) < 1:
+                if len(x_tokens) == 0:
                     silences += 1
 
             token_counter = Counter(tokens_list)
@@ -247,6 +247,6 @@ if __name__ == "__main__":
         "NED",
         ned(
             zip(disc_fragments, disc_clusters, disc_transcriptions),
-            args.disc_path / "ned_output.txt",
+            args.disc_path / "00_ned_output.txt",
         ),
     )

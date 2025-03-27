@@ -13,3 +13,24 @@ Using cache found in /home/danel/.cache/torch/hub/bshall_hubert_main
 🟢 Progress: 50% (1352/2703 files)
 🟢 Progress: 60% (1622/2703 files)
 🟢 Progress: 70% (1893/2703 files)
+🟢 Progress: 80% (2163/2703 files)
+🟢 Progress: 90% (2433/2703 files)
+🟢 Progress: 100% (2703/2703 files)
+
+✅ Processing complete!
+Step 2: Computing pairwise distances for Gamma=0.0, Layer=7
+Loading 65840 Features..
+Pairs: 2167419880, Batches: 434
+🟢 Progress: 0% (0/434 files)
+🟢 Progress: 5% (22/434 files)
+🟢 Progress: 10% (44/434 files)
+🟢 Progress: 15% (66/434 files)
+🟢 Progress: 20% (87/434 files)
+🟢 Progress: 25% (109/434 files)
+🟢 Progress: 30% (131/434 files)
+🟢 Progress: 35% (152/434 files)
+🟢 Progress: 40% (174/434 files)
+🟢 Progress: 45% (196/434 files)
+🟢 Progress: 50% (217/434 files)
+🟢 Progress: 55% (239/434 files)
+🟢 Progress: 60% (261/434 files)
