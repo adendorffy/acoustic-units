@@ -40,7 +40,7 @@ def calculate_edit_distance(
     return idx_1, idx_2, editdistance.eval(feature_1, feature_2) / max_length
 
 
-def calculate_temp_files(
+def calculate_dist_files(
     gamma: float,
     layer: int,
     feat_dir: Path,
@@ -129,6 +129,6 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    calculate_temp_files(
+    calculate_dist_files(
         args.gamma, args.layer, args.feat_dir, args.output_dir, args.chunk_limit
     )

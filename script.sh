@@ -31,10 +31,10 @@ for GAMMA in "${GAMMAS[@]}"; do
     python extract_alignment.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" "$FEATURES_DIR" "$OUTPUT_DIR"
 
     echo "b) Convert partition to .list files"
-    python convert_partition.py "$GAMMA" "$LAYER" "$ALIGNMENTS_DIR" "$OUTPUT_DIR" 
+    python convert_partition.py "$GAMMA" "$LAYER" "$THRESHOLD"  "$ALIGNMENTS_DIR" "$OUTPUT_DIR" 
 
     echo "c) Calculate NED for .list output files"
-    python evaluate.py "$OUTPUT_DIR/$GAMMA/$LAYER" "$ALIGNMENTS_DIR" # NEED TO FIX THIS WEIRD /RESOLUTION PROBLEM
+    python evaluate.py "$GAMMA" "$LAYER" "$THRESHOLD" "$OUTPUT_DIR" "$ALIGNMENTS_DIR" 
 
 done
 

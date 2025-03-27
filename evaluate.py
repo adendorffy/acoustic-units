@@ -11,6 +11,7 @@ import editdistance
 from intervaltree import IntervalTree, Interval
 from textgrid import TextGrid, IntervalTier
 from collections import Counter
+from convert_partition import get_partition_path
 
 
 @dataclasses.dataclass(frozen=True)
@@ -166,14 +167,18 @@ def transcribe(fragment: Fragment, tree: IntervalTree) -> Transcription:
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=".")
     parser.add_argument(
-        "disc_path",
-        metavar="disc-path",
+        "gamma", type=float, help="Gamma value used for feature extraction."
+    )
+    parser.add_argument("layer", type=int, help="Layer number for processing.")
+    parser.add_argument("threshold", type=float, help="Threshold at whic to extract.")
+    parser.add_argument(
+        "output_dir",
         help="path to the discovered fragments.",
         type=Path,
     )
+
     parser.add_argument(
-        "gold_dir",
-        metavar="gold-dir",
+        "align_dir",
         help="path to the directory of alignments.",
         type=Path,
     )
@@ -184,9 +189,26 @@ if __name__ == "__main__":
         default=".TextGrid",
         type=str,
     )
-    args = parser.parse_args()
+    parser.add_argument(
+        "--override",
+        help="To override the normal path",
+        default=None,
+        type=Path,
+    )
 
-    files = args.disc_path.rglob("**/*" + ".list")
+    args = parser.parse_args()
+    if args.override:
+        print(f"Use override path: {args.override}")
+        list_dir = args.override
+    else:
+        _, resolution = get_partition_path(
+            args.gamma, args.layer, args.threshold, args.output_dir
+        )
+        print(f"Resolution found: {resolution}")
+        list_dir = (
+            args.output_dir / str(args.gamma) / str(args.layer) / f"{resolution:.6f}"
+        )
+    files = list_dir.rglob("*.list")
     fragments = []
     for file in files:
         with open(file, "r") as f:
@@ -210,7 +232,7 @@ if __name__ == "__main__":
     print("Number of clusters:", len(set(disc_clusters)))
 
     grids = {}
-    files = args.gold_dir.rglob("**/*" + args.alignment_format)
+    files = args.align_dir.rglob("**/*" + args.alignment_format)
     for file in files:  # alignment files
         if args.alignment_format == ".TextGrid":
             grids[file.stem] = TextGrid.fromFile(file)
@@ -247,6 +269,6 @@ if __name__ == "__main__":
         "NED",
         ned(
             zip(disc_fragments, disc_clusters, disc_transcriptions),
-            args.disc_path / "00_ned_output.txt",
+            list_dir / "00_ned_output.txt",
         ),
     )

@@ -65,8 +65,12 @@ if __name__ == "__main__":
     output_dir = args.out_dir / str(args.gamma) / str(args.layer)
     output_dir.mkdir(exist_ok=True, parents=True)
 
-    graph = build_graph_from_chunks(dist_dir, args.threshold)
     graph_path = output_dir / f"graph_t{args.threshold}.pkl"
-    with open(graph_path, "wb") as f:
-        pickle.dump(graph, f)
-    print(f"Graph saved to {graph_path}")
+    if not graph_path.exists():
+        graph = build_graph_from_chunks(dist_dir, args.threshold)
+
+        with open(graph_path, "wb") as f:
+            pickle.dump(graph, f)
+        print(f"Graph saved to {graph_path}")
+    else:
+        print(f"Graph already built and stored in {graph_path}")
