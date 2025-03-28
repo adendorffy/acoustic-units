@@ -32,12 +32,12 @@ def calculate_edit_distance(
     pair: Tuple[Tuple[int, int], Tuple[np.ndarray, np.ndarray]],
 ) -> Tuple[int, int, float]:
     (idx_1, idx_2), (feature_1, feature_2) = pair
-    max_length = max(len(feature_1), len(feature_2))
+    # max_length = max(len(feature_1), len(feature_2))
 
-    if max_length == 0:
-        return idx_1, idx_2, 0.0
+    # if max_length == 0:
+    #     return idx_1, idx_2, 1.0
 
-    return idx_1, idx_2, editdistance.eval(feature_1, feature_2) / max_length
+    return idx_1, idx_2, editdistance.eval(feature_1, feature_2)
 
 
 def calculate_dist_files(
@@ -46,6 +46,7 @@ def calculate_dist_files(
     feat_dir: Path,
     output_dir: Path,
     chunk_limit: int = 5_000_000,
+    recalculate: bool = False,
 ):
     feature_dir = feat_dir / str(gamma) / str(layer)
     paths = sorted(
@@ -65,11 +66,14 @@ def calculate_dist_files(
         f"Pairs: {num_pairs}, Batches: {num_batches}",
         flush=True,
     )
-    out_dir = output_dir / "distances" / str(gamma) / str(layer)
+    if recalculate:
+        out_dir = output_dir / "distances2" / str(gamma) / f"{layer}"
+    else:
+        out_dir = output_dir / "distances" / str(gamma) / str(layer)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     out_paths = list(out_dir.rglob("vals_*.npy"))
-    if len(out_paths) == num_batches:
+    if len(out_paths) == num_batches and not recalculate:
         print(f"All batches already processed and saved in {out_dir}.", flush=True)
         return
 
@@ -126,9 +130,18 @@ if __name__ == "__main__":
         default=5_000_000,
         help="Chunk size limit for batch processing.",
     )
-
+    parser.add_argument(
+        "--recalculate",
+        action="store_true",
+        help="Override check for existing files.",
+    )
     args = parser.parse_args()
 
     calculate_dist_files(
-        args.gamma, args.layer, args.feat_dir, args.output_dir, args.chunk_limit
+        args.gamma,
+        args.layer,
+        args.feat_dir,
+        args.output_dir,
+        args.chunk_limit,
+        args.recalculate,
     )

@@ -13,13 +13,13 @@ def adaptive_res_search(
     g: ig.Graph,
     num_clusters: int,
     initial_res: float = 0.02,
-    alpha: float = 0.001,
+    alpha: float = 0.01,
     max_iters: int = 50,
     tol: float = 1e-6,
     patience: int = 3,
     min_alpha: float = 1e-5,
     alpha_boost: float = 1.1,
-    diff_tol: int = 2,
+    diff_tol: int = 4,
 ):
     res = initial_res
     best_res, best_partition = res, None

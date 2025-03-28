@@ -16,7 +16,7 @@ def clean_phones(dirty_phones: str):
     return tuple(
         re.sub(r"[012]", "", phn).lower()
         for phn in str(dirty_phones).split(",")
-        if phn.strip() not in {"sil", "sp", "", "spn"}
+        if phn.strip() not in {"sil", "sp", "", "spn", "nan"}
     )
 
 
@@ -30,6 +30,7 @@ def convert_to_intervals(align_df: pd.DataFrame):
         end_time = row["word_end"]
         phones = clean_phones(row["phones"])
         word = row["text"]
+
         if len(phones) > 0:
             non_silence_fragments += 1
         else:
@@ -79,11 +80,11 @@ def transcribe(
                 match_found = True
 
                 if check_boundary(gold_interval, disc_interval):
-                    # match_found = True
-                    if len(phones) > 0:
-                        enriched_fragments.append(
-                            (cluster, speaker, disc_interval, phones, word)
-                        )
+                    if not phones:
+                        break
+                    enriched_fragments.append(
+                        (cluster, speaker, disc_interval, phones, word)
+                    )
 
                     break
         if not match_found:
@@ -120,7 +121,7 @@ def ned(
             token_counter = Counter(phones_list)
             for tokens, count in token_counter.most_common():
                 token_str = " ".join(tokens)
-                f.write(f"{token_str:<30} → {count} times\n")
+                f.write(f"{token_str:<30}  → {count} times\n")
 
             if len(group_list) < 2:
                 continue
@@ -134,6 +135,10 @@ def ned(
             if cluster_distances:
                 avg_cluster_ned = statistics.mean(cluster_distances)
                 overall_distances.extend(cluster_distances)
+                f.write(
+                    f"Distances: {', '.join(f'{d:.2f}' for d in set(cluster_distances))}\n"
+                )
+
                 f.write(f"→ Avg NED for Cluster {cluster_id}: {avg_cluster_ned:.4f}\n")
                 f.write(f"{'=' * 60}\n")
 
@@ -144,6 +149,54 @@ def ned(
             overall_avg = 0.0
             f.write("\n⚠️ No valid clusters with multiple elements found.\n")
     print(f"✅ NED report for [NED = {overall_avg * 100:.3f}%] written to: {out_path}")
+    return overall_avg
+
+
+def word_purity(
+    discovered_transcriptions: Iterable[
+        Tuple[int, str, Interval, Tuple[str, ...], str]
+    ],
+    out_path: Path,
+):
+    sorted_transcriptions = sorted(discovered_transcriptions, key=lambda x: x[0])
+    overall_distances = []
+    with open(out_path, "w") as f:
+        for cluster_id, group in itertools.groupby(
+            sorted_transcriptions, key=lambda x: x[0]
+        ):
+            group_list = list(group)
+            word_list = [x[4] for x in group_list]
+            f.write(f"\n{'-' * 60}\n")
+            f.write(f"🧩 Cluster {cluster_id} | Size: {len(word_list)}\n")
+            f.write(f"{'-' * 60}\n")
+
+            token_counter = Counter(word_list)
+            for token, count in token_counter.most_common():
+                f.write(f"{token:<30}  → {count} times\n")
+
+            if len(group_list) < 2:
+                continue
+            cluster_distances = []
+            for p, q in itertools.combinations(group_list, 2):
+                d = distance(p[4], q[4])
+                cluster_distances.append(d)
+
+            if cluster_distances:
+                avg_cluster_ned = statistics.mean(cluster_distances)
+                f.write(
+                    f"Distances: {', '.join(f'{d:.2f}' for d in set(cluster_distances))}\n"
+                )
+
+                f.write(
+                    f"→ Avg word purity for Cluster {cluster_id}: {avg_cluster_ned:.4f}\n"
+                )
+                f.write(f"{'=' * 60}\n")
+
+                overall_distances.extend(cluster_distances)
+
+        overall_avg = statistics.mean(overall_distances)
+        f.write(f"\n🔍 Overall WP across all clusters: {overall_avg:.4f}\n")
+    print(f"✅ WP report for [WP = {overall_avg * 100:.3f}%] written to: {out_path}")
     return overall_avg
 
 
@@ -193,10 +246,11 @@ if __name__ == "__main__":
         _, resolution = get_partition_path(
             args.gamma, args.layer, args.threshold, args.output_dir
         )
-        print(f"Resolution found: {resolution}")
+
         list_dir = (
-            args.output_dir / str(args.gamma) / str(args.layer) / f"{resolution:.6f}"
+            args.output_dir / str(args.gamma) / str(args.layer) / f"{resolution:.6g}"
         )
+        print(f"Resolution found: {resolution}, using list directory: {list_dir}")
     files = list_dir.rglob("*.list")
     discovered_fragments = []
     for file in files:
@@ -237,4 +291,7 @@ if __name__ == "__main__":
         f"Correct number of tokens (non-silence fragments): {'YES' if len(discovered_transcriptions) == total_non_silence else 'NO'} [{total_non_silence}|{len(discovered_transcriptions)}]"
     )
 
-    # ned_value = ned(discovered_transcriptions, list_dir / "00_ned.txt")
+    ned_value = ned(discovered_transcriptions, list_dir / "00_ned.txt")
+    word_purity_value = word_purity(
+        discovered_transcriptions, list_dir / "00_word_purity.txt"
+    )
