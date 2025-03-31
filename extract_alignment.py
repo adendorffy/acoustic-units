@@ -100,10 +100,10 @@ def match_to_feat_paths(
     prev_progress = -1
 
     print("Getting Alignments in order...", flush=True)
-    for i, path in enumerate(paths):
+    for i, path in enumerate(paths, 1):
         filename_parts = path.stem.split("_")
         wav_df = alignments_df[alignments_df["filename"] == filename_parts[0]]
-        word_df = wav_df[wav_df["word_id"] == int(filename_parts[1])]
+        word_df = wav_df[wav_df["word_id"] == int(filename_parts[1]) + 1]
 
         texts.append(str(word_df["text"].iloc[0]))
 
@@ -154,6 +154,6 @@ if __name__ == "__main__":
 
     alignments_df = extract_alignments(args.align_dir)
 
-    # match_to_feat_paths(
-    #     args.gamma, args.layer, alignments_df, args.feat_dir, args.out_path
-    # )
+    match_to_feat_paths(
+        args.gamma, args.layer, alignments_df, args.feat_dir, args.out_path
+    )
