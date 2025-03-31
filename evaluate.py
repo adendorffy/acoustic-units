@@ -14,7 +14,7 @@ import itertools
 
 def clean_phones(dirty_phones: str):
     return tuple(
-        re.sub(r"[012]", "", phn).lower()
+        re.sub(r"[012]", "", phn)
         for phn in str(dirty_phones).split(",")
         if phn.strip() not in {"sil", "sp", "", "spn", "nan"}
     )
@@ -67,88 +67,128 @@ def check_boundary(gold: Interval, disc: Interval) -> bool:
 def transcribe(
     discovered_fragments: list[tuple[str, Interval, int]],
     trees: dict[str, IntervalTree],
+    silences: bool = False,
 ) -> list[tuple[str, Interval, tuple[str, ...], str]]:
     enriched_fragments = []
 
     for speaker, disc_interval, cluster in discovered_fragments:
         match_found = False
+        if speaker not in trees:
+            print(f"⚠️ Speaker {speaker} not in trees.")
+
         if speaker in trees:
             overlaps = trees[speaker].overlap(disc_interval.begin, disc_interval.end)
             for match in overlaps:
                 gold_interval = Interval(match.begin, match.end)
                 phones, word = match.data
-                match_found = True
 
                 if check_boundary(gold_interval, disc_interval):
-                    if not phones:
-                        break
+                    if not phones and not silences:
+                        continue
+
                     enriched_fragments.append(
                         (cluster, speaker, disc_interval, phones, word)
                     )
+                    match_found = True
 
                     break
         if not match_found:
             print(f"No match found for {speaker} at {disc_interval}")
 
+            already_added = any(
+                frag_speaker == speaker and frag_interval.end == disc_interval.end
+                for _, frag_speaker, frag_interval, _, _ in enriched_fragments
+            )
+            if already_added:
+                print("Match already added")
+            if not already_added:
+                phones = tuple()
+                word = ""
+                enriched_fragments.append(
+                    (cluster, speaker, disc_interval, phones, word)
+                )
+
     return enriched_fragments
 
 
 def distance(p: Tuple[str, ...], q: Tuple[str, ...]) -> float:
-    length = max(len(p), len(q))
-    return editdistance.eval(p, q) / length if length > 0 else 1
+    if p and q:
+        length = max(len(p), len(q))
+        return editdistance.eval(p, q) / length
+    return 1
 
 
 def ned(
     discovered_transcriptions: Iterable[
         Tuple[int, str, Interval, Tuple[str, ...], str]
     ],
-    out_path: Path,
-):
-    sorted_transcriptions = sorted(discovered_transcriptions, key=lambda x: x[0])
+    log_path: Path,
+) -> float:
+    discovered_transcriptions = sorted(discovered_transcriptions, key=lambda x: x[0])
     overall_distances = []
-    with open(out_path, "w") as f:
-        for cluster_id, group in itertools.groupby(
-            sorted_transcriptions, key=lambda x: x[0]
+    lines = []
+
+    for cluster_id, group in itertools.groupby(
+        discovered_transcriptions, key=lambda x: x[0]
+    ):
+        group_list = list(group)
+        phones_list = [x[3] for x in group_list]
+
+        lines.append(f"\n{'-' * 60}")
+        lines.append(f"🧩 Cluster {cluster_id} | Size: {len(phones_list)}")
+        lines.append(f"{'-' * 60}")
+
+        # Collect speakers per token sequence
+        token_speakers = {}
+        for x in group_list:
+            phones = x[3]
+            speaker = x[1]
+            token_speakers.setdefault(phones, []).append(speaker)
+
+        # Display with speakers and count
+        for tokens, speakers in sorted(
+            token_speakers.items(), key=lambda item: len(item[1]), reverse=True
         ):
-            group_list = list(group)
-            phones_list = [x[3] for x in group_list]
+            token_str = " ".join(tokens)
+            speaker_str = ", ".join(speakers)
+            count = len(speakers)
+            lines.append(f"{token_str:<20} [{speaker_str}] → {count} times")
 
-            # Write cluster summary
-            f.write(f"\n{'-' * 60}\n")
-            f.write(f"🧩 Cluster {cluster_id} | Size: {len(phones_list)}\n")
-            f.write(f"{'-' * 60}\n")
+        if len(group_list) < 2:
+            continue
 
-            token_counter = Counter(phones_list)
-            for tokens, count in token_counter.most_common():
-                token_str = " ".join(tokens)
-                f.write(f"{token_str:<30}  → {count} times\n")
+        # Pairwise NED calculations
+        cluster_distances = []
+        for p, q in itertools.combinations(group_list, 2):
+            d = distance(p[3], q[3])
+            cluster_distances.append(d)
+            overall_distances.append(d)
 
-            if len(group_list) < 2:
-                continue
+        avg_cluster_ned = statistics.mean(cluster_distances)
 
-            cluster_distances = []
-            for p, q in itertools.combinations(group_list, 2):
-                d = distance(p[3], q[3])
+        lines.append(f"→ Avg NED for Cluster {cluster_id}: {avg_cluster_ned:.4f}")
+        lines.append(f"{'=' * 60}")
 
-                cluster_distances.append(d)
+    # Final summary
+    if overall_distances:
+        overall_avg = statistics.mean(overall_distances)
+        lines.append(f"\n🔍 Overall NED across all clusters: {overall_avg:.4f}")
+    else:
+        overall_avg = 0.0
+        lines.append("\n⚠️ No valid clusters with multiple elements found.")
 
-            if cluster_distances:
-                avg_cluster_ned = statistics.mean(cluster_distances)
-                overall_distances.extend(cluster_distances)
-                f.write(
-                    f"Distances: {', '.join(f'{d:.2f}' for d in set(cluster_distances))}\n"
-                )
+    # Write to file
+    if log_path:
+        log_path = Path(log_path)
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+        with open(log_path, "w") as f:
+            f.write("\n".join(lines))
+        print(
+            f"✅ NED report for [NED = {overall_avg * 100:.3f}%] written to: {log_path}"
+        )
+    else:
+        print("\n".join(lines))
 
-                f.write(f"→ Avg NED for Cluster {cluster_id}: {avg_cluster_ned:.4f}\n")
-                f.write(f"{'=' * 60}\n")
-
-        if overall_distances:
-            overall_avg = statistics.mean(overall_distances)
-            f.write(f"\n🔍 Overall NED across all clusters: {overall_avg:.4f}\n")
-        else:
-            overall_avg = 0.0
-            f.write("\n⚠️ No valid clusters with multiple elements found.\n")
-    print(f"✅ NED report for [NED = {overall_avg * 100:.3f}%] written to: {out_path}")
     return overall_avg
 
 
@@ -160,6 +200,7 @@ def word_purity(
 ):
     sorted_transcriptions = sorted(discovered_transcriptions, key=lambda x: x[0])
     overall_distances = []
+
     with open(out_path, "w") as f:
         for cluster_id, group in itertools.groupby(
             sorted_transcriptions, key=lambda x: x[0]
@@ -178,7 +219,12 @@ def word_purity(
                 continue
             cluster_distances = []
             for p, q in itertools.combinations(group_list, 2):
-                d = distance(p[4], q[4])
+                if not p[4]:
+                    p = None
+                if not q[4]:
+                    q = None
+
+                d = distance(p, q)
                 cluster_distances.append(d)
 
             if cluster_distances:
@@ -238,6 +284,11 @@ if __name__ == "__main__":
         default=None,
         type=Path,
     )
+    parser.add_argument(
+        "--silences",
+        help="Use silences in NED calculation.",
+        action="store_true",
+    )
     args = parser.parse_args()
     if args.override:
         print(f"Use override path: {args.override}")
@@ -285,13 +336,18 @@ if __name__ == "__main__":
     convert_dirty_fragments_to_csv(dirty_fragments, "output/dirty_fragments.csv")
     trees = build_speaker_trees(gold_fragments)
 
-    discovered_transcriptions = transcribe(discovered_fragments, trees)
+    discovered_transcriptions = transcribe(discovered_fragments, trees, args.silences)
     print(f"Example transcription: {discovered_transcriptions[0]}")
     print(
         f"Correct number of tokens (non-silence fragments): {'YES' if len(discovered_transcriptions) == total_non_silence else 'NO'} [{total_non_silence}|{len(discovered_transcriptions)}]"
     )
-
-    ned_value = ned(discovered_transcriptions, list_dir / "00_ned.txt")
-    word_purity_value = word_purity(
-        discovered_transcriptions, list_dir / "00_word_purity.txt"
-    )
+    if args.silences:
+        ned_value = ned(discovered_transcriptions, list_dir / "00_silences_ned.txt")
+        word_purity_value = word_purity(
+            discovered_transcriptions, list_dir / "00_silences_word_purity.txt"
+        )
+    else:
+        ned_value = ned(discovered_transcriptions, list_dir / "00_ned.txt")
+        word_purity_value = word_purity(
+            discovered_transcriptions, list_dir / "00_word_purity.txt"
+        )
