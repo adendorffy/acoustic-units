@@ -32,10 +32,6 @@ def calculate_edit_distance(
     pair: Tuple[Tuple[int, int], Tuple[np.ndarray, np.ndarray]],
 ) -> Tuple[int, int, float]:
     (idx_1, idx_2), (feature_1, feature_2) = pair
-    # max_length = max(len(feature_1), len(feature_2))
-
-    # if max_length == 0:
-    #     return idx_1, idx_2, 1.0
 
     return idx_1, idx_2, editdistance.eval(feature_1, feature_2)
 
