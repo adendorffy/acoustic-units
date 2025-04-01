@@ -301,7 +301,7 @@ if __name__ == "__main__":
         f"Correct number of tokens (non-silence fragments): {'YES' if len(discovered_transcriptions) == total_non_silence else 'NO'} [{total_non_silence}|{len(discovered_transcriptions)}]"
     )
 
-    out_dir = args.results_dir / "output"
+    out_dir = args.results_dir / "clusters"
     out_dir.mkdir(parents=True, exist_ok=True)
 
     if args.silences:

@@ -19,7 +19,7 @@ def adaptive_res_search(
     patience: int = 3,
     min_alpha: float = 1e-5,
     alpha_boost: float = 1.1,
-    diff_tol: int = 4,
+    diff_tol: int = 5,
 ):
     res = initial_res
     best_res, best_partition = res, None
