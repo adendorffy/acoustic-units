@@ -12,7 +12,7 @@ audio_dir = Path("librispeech/audio")
 align_dir = Path("librispeech/alignments")
 feat_dir = Path("kmeans-features/")
 audio_ext = ".flac"
-layer = 8
+layer = 9
 
 audio_paths = list(audio_dir.rglob(f"**/*{audio_ext}"))
 print(f"encoding {len(audio_paths)} audio files")
