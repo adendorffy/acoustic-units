@@ -8,6 +8,7 @@ import argparse
 
 
 def main(model_name: str, layer: int):
+    model_name = model_name.upper()
     sr = 16000
     audio_dir = Path("librispeech/audio")
     audio_ext = ".flac"
@@ -15,7 +16,6 @@ def main(model_name: str, layer: int):
     audio_paths = list(audio_dir.rglob(f"**/*{audio_ext}"))
     print(f"Encoding {len(audio_paths)} audio files")
 
-    # Load model based on command-line arg
     try:
         bundle = getattr(torchaudio.pipelines, model_name)
     except AttributeError:
@@ -26,7 +26,7 @@ def main(model_name: str, layer: int):
 
     all_features = []
     for path in tqdm(audio_paths, desc="Encoding speech"):
-        waveform, sr_loaded = torchaudio.load(path)
+        waveform, sr_loaded = torchaudio.load(str(path))
         if sr_loaded != sr:
             waveform = torchaudio.functional.resample(waveform, sr_loaded, sr)
 
