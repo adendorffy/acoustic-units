@@ -4,6 +4,7 @@ from pathlib import Path
 import pandas as pd
 from sklearn.cluster import KMeans
 import joblib
+from tqdm import tqdm
 
 
 sr = 16000
@@ -13,20 +14,21 @@ feat_dir = Path("kmeans-features/")
 audio_ext = ".flac"
 layer = 8
 
-audio_paths = list(audio_dir.rglob(f"**/*.{audio_ext}"))
+audio_paths = list(audio_dir.rglob(f"**/*{audio_ext}"))
+print(f"encoding {len(audio_paths)} audio files")
 align_df = pd.read_csv(align_dir / "alignments.csv")
 bundle = torchaudio.pipelines.HUBERT_BASE
 model = bundle.get_model()
 model.eval()
 
 all_features = []
-for path in audio_paths:
+for path in tqdm(audio_paths, desc="Encoding speech"):
     waveform, sr = torchaudio.load(path)
     if sr != 16000:
         waveform = torchaudio.functional.resample(waveform, sr, 16000)
 
     with torch.inference_mode():
-        features, _ = model.extract_features(waveform, layer=layer)
+        features, _ = model.extract_features(waveform, num_layers=layer)
         encoding = features[-1].squeeze(0)
 
     all_features.append(encoding)
