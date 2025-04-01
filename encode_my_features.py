@@ -109,7 +109,6 @@ def main(model_name: str, layer: int):
     audio_ext = ".flac"
 
     audio_paths = list(audio_dir.rglob(f"**/*{audio_ext}"))
-    audio_paths = audio_paths[0:100]
 
     kmeans_path = f"models/kmeans_{model_name.lower()}_layer{layer}_k100.pkl"
     kmeans = joblib.load(kmeans_path)
@@ -133,7 +132,8 @@ def main(model_name: str, layer: int):
 
             for w in range(1, max(wav_df["word_id"]) + 1):
                 word_df = wav_df[wav_df["word_id"] == w]
-
+                if word_df["text"].iloc[0] not in ["lady", "the", "a", "an"]:
+                    continue
                 cut_enc = cut_encoding(
                     encoding,
                     [word_df["word_start"].iloc[0], word_df["word_end"].iloc[0]],
