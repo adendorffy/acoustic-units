@@ -104,13 +104,13 @@ def main(model_name: str, layer: int):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "--model",
+        "model",
         type=str,
         default="HUBERT_BASE",
         help="Model name from torchaudio.pipelines (e.g., HUBERT_BASE, WAV2VEC2_BASE)",
     )
     parser.add_argument(
-        "--layer", type=int, default=8, help="Layer number to extract features from"
+        "layer", type=int, default=8, help="Layer number to extract features from"
     )
     args = parser.parse_args()
     main(args.model, args.layer)
