@@ -70,7 +70,7 @@ def get_units(
         encoding = encode(hubert, wav, layer).squeeze(0)
         word_count += max(wav_df["word_id"]) + 1
 
-        for w in range(max(wav_df["word_id"]) + 1):
+        for w in range(1, max(wav_df["word_id"]) + 1):
             word_df = wav_df[wav_df["word_id"] == w]
             clean_encoding = cut_encoding(
                 encoding,

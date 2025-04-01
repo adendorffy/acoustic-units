@@ -37,14 +37,14 @@ def calculate_edit_distance(
 
 
 def calculate_dist_files(
-    gamma: float,
+    model: str,
     layer: int,
     feat_dir: Path,
     output_dir: Path,
     chunk_limit: int = 5_000_000,
     recalculate: bool = False,
 ):
-    feature_dir = feat_dir / str(gamma) / str(layer)
+    feature_dir = feat_dir / model / str(layer)
     paths = sorted(
         feature_dir.rglob("**/*.npy"), key=lambda x: int(x.stem.split("_")[-1])
     )
@@ -62,10 +62,8 @@ def calculate_dist_files(
         f"Pairs: {num_pairs}, Batches: {num_batches}",
         flush=True,
     )
-    if recalculate:
-        out_dir = output_dir / "distances2" / str(gamma) / f"{layer}"
-    else:
-        out_dir = output_dir / "distances" / str(gamma) / str(layer)
+
+    out_dir = output_dir / "distances" / model / str(layer)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     out_paths = list(out_dir.rglob("vals_*.npy"))
@@ -111,7 +109,10 @@ if __name__ == "__main__":
         description="Process feature distances and save results in chunks."
     )
     parser.add_argument(
-        "gamma", type=float, help="Gamma value used for feature extraction."
+        "model",
+        type=str,
+        default="HUBERT_BASE",
+        help="Model name from torchaudio.pipelines (e.g., HUBERT_BASE, WAV2VEC2_BASE)",
     )
     parser.add_argument("layer", type=int, help="Layer number for processing.")
     parser.add_argument(
@@ -134,7 +135,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     calculate_dist_files(
-        args.gamma,
+        args.model,
         args.layer,
         args.feat_dir,
         args.output_dir,

@@ -1,6 +1,7 @@
 from pathlib import Path
 import pandas as pd
 import argparse
+from collections import defaultdict
 
 
 def get_partition_path(gamma: float, layer: int, threshold: float, output_dir: Path):
@@ -44,6 +45,39 @@ def convert_to_list(gamma: float, layer: int, threshold: float, output_dir: Path
                 cluster_id = node_to_cluster.get(global_node_id, -1)
                 f.write(f"{word_end:.2f} {cluster_id}\n")
     print(f".list format output saved in {out_dir}")
+    return out_dir
+
+
+def convert_lists_to_class_format(list_dir: Path, output_file: Path):
+    class_to_fragments = defaultdict(list)
+
+    list_files = sorted(list_dir.rglob("*.list"))
+
+    for list_file in list_files:
+        filename = list_file.stem
+        with open(list_file, "r") as f:
+            lines = [line.strip() for line in f if line.strip()]
+
+        onset = 0.0
+        for line in lines:
+            try:
+                offset_str, classnb_str = line.split()
+                offset = float(offset_str)
+                classnb = int(classnb_str)
+                class_to_fragments[classnb].append((filename, onset, offset))
+                onset = offset
+            except ValueError:
+                print(f"⚠️ Malformed line in {list_file}: {line}")
+
+    # Write to output
+    with open(output_file, "w") as f:
+        for classnb in sorted(class_to_fragments.keys()):
+            f.write(f"Class {classnb}\n")
+            for filename, onset, offset in class_to_fragments[classnb]:
+                f.write(f"{filename} {onset:.2f} {offset:.2f}\n")
+            f.write("\n")
+
+    print(f"✅ Combined output written to: {output_file}")
 
 
 if __name__ == "__main__":
@@ -62,4 +96,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    convert_to_list(args.gamma, args.layer, args.threshold, args.output_dir)
+    list_dir = convert_to_list(args.gamma, args.layer, args.threshold, args.output_dir)
+    results_dir = Path("results")
+    results_dir.mkdir(parents=True, exist_ok=True)
+
+    convert_lists_to_class_format(
+        list_dir,
+        output_file=results_dir / f"g{args.gamma}_l{args.layer}_t{args.threshold}.txt",
+    )
