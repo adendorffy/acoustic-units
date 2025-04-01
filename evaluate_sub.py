@@ -219,9 +219,6 @@ def word_purity(
 
             if cluster_distances:
                 avg_cluster_ned = statistics.mean(cluster_distances)
-                f.write(
-                    f"Distances: {', '.join(f'{d:.2f}' for d in set(cluster_distances))}\n"
-                )
 
                 f.write(
                     f"→ Avg word purity for Cluster {cluster_id}: {avg_cluster_ned:.4f}\n"
