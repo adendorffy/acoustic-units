@@ -14,7 +14,7 @@ def adaptive_res_search(
     num_clusters: int,
     initial_res: float = 0.02,
     alpha: float = 0.01,
-    max_iters: int = 50,
+    max_iters: int = 10,
     tol: float = 1e-6,
     patience: int = 3,
     min_alpha: float = 1e-5,

@@ -7,6 +7,28 @@ import argparse
 import editdistance
 import numpy as np
 from tqdm import tqdm
+from scipy.spatial.distance import cdist
+
+silence_codes_wavlm_base_12 = [
+    38,
+    11,
+    1,
+    8,
+    42,
+    52,
+    60,
+    33,
+    12,
+    76,
+    81,
+    88,
+    74,
+    76,
+    33,
+    54,
+    34,
+    57,
+]
 
 
 def get_frame_num(timestamp: float, sample_rate: int, frame_size_ms: int) -> int:
@@ -38,14 +60,42 @@ def distance(feat_1, feat_2):
     return editdistance.eval(feat_1, feat_2) / length
 
 
+def greedy_segment(
+    sequence: np.ndarray, codebook: np.ndarray, silence_codes: set = None
+) -> np.ndarray:
+    dists = cdist(sequence, codebook)
+    frame_codes = np.argmin(dists, axis=1)
+
+    segments = []
+    prev_code = frame_codes[0]
+
+    for t in range(1, len(frame_codes)):
+        if frame_codes[t] != prev_code:
+            segments.append(prev_code)
+            prev_code = frame_codes[t]
+
+    segments.append(prev_code)
+
+    if silence_codes:
+        # Remove leading silence codes
+        while segments and segments[0] in silence_codes:
+            segments.pop(0)
+
+        # Remove trailing silence codes
+        while segments and segments[-1] in silence_codes:
+            segments.pop()
+
+    return np.array(segments)
+
+
 def main(model_name: str, layer: int):
+    model_name = model_name.upper()
     sr = 16000
     align_dir = Path("librispeech/alignments")
     align_df = pd.read_csv(align_dir / "alignments.csv")
     features_dir = Path(f"my-features/{model_name}/{layer}")
     features_dir.mkdir(parents=True, exist_ok=True)
 
-    # Load model
     try:
         bundle = getattr(torchaudio.pipelines, model_name)
     except AttributeError:
@@ -60,45 +110,51 @@ def main(model_name: str, layer: int):
 
     audio_paths = list(audio_dir.rglob(f"**/*{audio_ext}"))
 
-    # Load KMeans model
     kmeans_path = f"models/kmeans_{model_name.lower()}_layer{layer}_k100.pkl"
     kmeans = joblib.load(kmeans_path)
 
-    word_count = 0
-    for i, path in tqdm(
-        enumerate(audio_paths, start=1),
-        total=len(audio_paths),
-        desc="Encoding features",
-    ):
-        wav_df = align_df[align_df["filename"] == path.stem]
-        word_count += max(wav_df["word_id"]) + 1
-        waveform, sr_loaded = torchaudio.load(path)
-        if sr_loaded != sr:
-            waveform = torchaudio.functional.resample(waveform, sr_loaded, sr)
+    with open("inspect.txt", "w") as f:
+        word_count = 0
+        for path in tqdm(
+            audio_paths,
+            total=len(audio_paths),
+            desc="Encoding features",
+        ):
+            wav_df = align_df[align_df["filename"] == path.stem]
+            word_count += max(wav_df["word_id"]) + 1
+            waveform, sr_loaded = torchaudio.load(str(path))
+            if sr_loaded != sr:
+                waveform = torchaudio.functional.resample(waveform, sr_loaded, sr)
 
-        with torch.inference_mode():
-            features, _ = model.extract_features(waveform, num_layers=layer)
-            encoding = features[layer - 1].squeeze().cpu().numpy()
+            with torch.inference_mode():
+                features, _ = model.extract_features(waveform, num_layers=layer)
+                encoding = features[layer - 1].squeeze().cpu().numpy()
 
-        # Extract encodings for "lady" instances
-        for w in range(1, max(wav_df["word_id"]) + 1):
-            word_df = wav_df[wav_df["word_id"] == w]
-            cut_enc = cut_encoding(
-                encoding,
-                [word_df["word_start"].iloc[0], word_df["word_end"].iloc[0]],
-            )
-            codes = []
-            if len(cut_enc) > 0:
-                word_codes = kmeans.predict(cut_enc)
-                codes = collapse_runs(word_codes)
+            for w in range(1, max(wav_df["word_id"]) + 1):
+                word_df = wav_df[wav_df["word_id"] == w]
+                if word_df["text"].iloc[0] not in ["lady", "the", "a", "an"]:
+                    continue
+                cut_enc = cut_encoding(
+                    encoding,
+                    [word_df["word_start"].iloc[0], word_df["word_end"].iloc[0]],
+                )
+                codes = []
+                if len(cut_enc) > 0:
+                    codes = greedy_segment(
+                        cut_enc,
+                        kmeans.cluster_centers_,
+                    )
+                    f.write(
+                        f"{' '.join(word_df['phones'].iloc[0].split(',')):<15}[{word_df['text'].iloc[0]:<10}] | {codes}\n"
+                    )
 
-            save_path = (
-                features_dir
-                / path.relative_to(audio_dir).parent
-                / f"{path.stem}_{w}.npy"
-            )
-            save_path.parent.mkdir(parents=True, exist_ok=True)
-            np.save(save_path, codes)
+                save_path = (
+                    features_dir
+                    / path.relative_to(audio_dir).parent
+                    / f"{path.stem}_{w}.npy"
+                )
+                save_path.parent.mkdir(parents=True, exist_ok=True)
+                np.save(save_path, codes)
 
 
 if __name__ == "__main__":
