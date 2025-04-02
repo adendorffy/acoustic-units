@@ -4,8 +4,8 @@ import argparse
 from collections import defaultdict
 
 
-def get_partition_path(gamma: float, layer: int, threshold: float, output_dir: Path):
-    base_dir = output_dir / str(gamma) / str(layer)
+def get_partition_path(model: str, layer: int, threshold: float, output_dir: Path):
+    base_dir = output_dir / str(model) / str(layer)
 
     print(f"🔍 Searching for partition in: {base_dir}")
 
@@ -24,11 +24,11 @@ def get_partition_path(gamma: float, layer: int, threshold: float, output_dir: P
     return matches[0], resolution
 
 
-def convert_to_list(gamma: float, layer: int, threshold: float, output_dir: Path):
-    partition_path, resolution = get_partition_path(gamma, layer, threshold, output_dir)
+def convert_to_list(model: str, layer: int, threshold: float, output_dir: Path):
+    partition_path, resolution = get_partition_path(model, layer, threshold, output_dir)
     partition_df = pd.read_csv(partition_path)
 
-    out_dir = output_dir / str(gamma) / str(layer) / str(resolution)
+    out_dir = output_dir / model / str(layer) / str(resolution)
     out_dir.mkdir(parents=True, exist_ok=True)
 
     align_df = pd.read_csv(output_dir / "alignments_aligned_to_features.csv")
@@ -84,8 +84,14 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Process feature distances and save results in chunks."
     )
+    # parser.add_argument(
+    #     "gamma", type=float, help="Gamma value used for feature extraction."
+    # )
     parser.add_argument(
-        "gamma", type=float, help="Gamma value used for feature extraction."
+        "model",
+        type=str,
+        default="HUBERT_BASE",
+        help="Model name from torchaudio.pipelines (e.g., HUBERT_BASE, WAV2VEC2_BASE)",
     )
     parser.add_argument("layer", type=int, help="Layer number for processing.")
     parser.add_argument("threshold", type=float, help="Threshold at whic to extract.")
@@ -96,11 +102,11 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
-    list_dir = convert_to_list(args.gamma, args.layer, args.threshold, args.output_dir)
+    list_dir = convert_to_list(args.model, args.layer, args.threshold, args.output_dir)
     results_dir = Path("results")
     results_dir.mkdir(parents=True, exist_ok=True)
 
     convert_lists_to_class_format(
         list_dir,
-        output_file=results_dir / f"g{args.gamma}_l{args.layer}_t{args.threshold}.txt",
+        output_file=results_dir / f"{args.model}_l{args.layer}_t{args.threshold}.txt",
     )

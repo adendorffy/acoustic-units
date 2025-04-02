@@ -236,8 +236,14 @@ def word_purity(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=".")
     parser.add_argument(
-        "gamma", type=float, help="Gamma value used for feature extraction."
+        "model",
+        type=str,
+        default="HUBERT_BASE",
+        help="Model name from torchaudio.pipelines (e.g., HUBERT_BASE, WAV2VEC2_BASE)",
     )
+    # parser.add_argument(
+    #     "gamma", type=float, help="Gamma value used for feature extraction."
+    # )
     parser.add_argument("layer", type=int, help="Layer number for processing.")
     parser.add_argument("threshold", type=float, help="Threshold at whic to extract.")
     parser.add_argument(
@@ -259,7 +265,7 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    file = args.results_dir / f"g{args.gamma}_l{args.layer}_t{args.threshold}.txt"
+    file = args.results_dir / f"{args.model}_l{args.layer}_t{args.threshold}.txt"
 
     discovered_fragments = []
     with open(file, "r") as f:
@@ -301,21 +307,21 @@ if __name__ == "__main__":
     out_dir = args.results_dir / "clusters"
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.silences:
-        ned_value = ned(
-            discovered_transcriptions,
-            out_dir / f"sil_g{args.gamma}_l{args.layer}_t{args.threshold}_ned.txt",
-        )
-        word_purity_value = word_purity(
-            discovered_transcriptions,
-            out_dir / f"sil_g{args.gamma}_l{args.layer}_t{args.threshold}_wp.txt",
-        )
-    else:
-        ned_value = ned(
-            discovered_transcriptions,
-            out_dir / f"g{args.gamma}_l{args.layer}_t{args.threshold}_ned.txt",
-        )
-        word_purity_value = word_purity(
-            discovered_transcriptions,
-            out_dir / f"g{args.gamma}_l{args.layer}_t{args.threshold}_wp.txt",
-        )
+    # if args.silences:
+    #     ned_value = ned(
+    #         discovered_transcriptions,
+    #         out_dir / f"sil_g{args.gamma}_l{args.layer}_t{args.threshold}_ned.txt",
+    #     )
+    #     word_purity_value = word_purity(
+    #         discovered_transcriptions,
+    #         out_dir / f"sil_g{args.gamma}_l{args.layer}_t{args.threshold}_wp.txt",
+    #     )
+    # else:
+    ned_value = ned(
+        discovered_transcriptions,
+        out_dir / f"{args.model}_l{args.layer}_t{args.threshold}_ned.txt",
+    )
+    word_purity_value = word_purity(
+        discovered_transcriptions,
+        out_dir / f"{args.model}_l{args.layer}_t{args.threshold}_wp.txt",
+    )
