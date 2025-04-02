@@ -32,25 +32,34 @@ def calculate_edit_distance(
     pair: Tuple[Tuple[int, int], Tuple[np.ndarray, np.ndarray]],
 ) -> Tuple[int, int, float]:
     (idx_1, idx_2), (feature_1, feature_2) = pair
+    length = max(len(feature_1), len(feature_2))
 
-    return idx_1, idx_2, editdistance.eval(feature_1, feature_2)
+    return (
+        idx_1,
+        idx_2,
+        editdistance.eval(feature_1, feature_2) / length if length else 1.0,
+    )
 
 
 def calculate_dist_files(
     model: str,
+    gamma: float,
     layer: int,
     feat_dir: Path,
     output_dir: Path,
     chunk_limit: int = 5_000_000,
     recalculate: bool = False,
 ):
-    feature_dir = feat_dir / model / str(layer)
+    feature_dir = feat_dir / model.upper() / str(layer) / f"gamma{gamma}"
+
     paths = sorted(
         feature_dir.rglob("**/*.npy"), key=lambda x: int(x.stem.split("_")[-1])
     )
     sample_size = len(paths)
     if sample_size < 2:
-        print("Not enough samples to compute pairwise distances.")
+        print(
+            f"Not enough samples in {str(feature_dir)} to compute pairwise distances."
+        )
         return
     print(f"Loading {sample_size} Features..", flush=True)
     features = [np.load(path) for path in paths]
@@ -114,6 +123,7 @@ if __name__ == "__main__":
         default="HUBERT_BASE",
         help="Model name from torchaudio.pipelines (e.g., HUBERT_BASE, WAV2VEC2_BASE)",
     )
+    parser.add_argument("gamma", type=float, default=1.0, help="Gamma")
     parser.add_argument("layer", type=int, help="Layer number for processing.")
     parser.add_argument(
         "feat_dir", type=Path, help="Path to the directory to store encodings."
@@ -137,6 +147,7 @@ if __name__ == "__main__":
     calculate_dist_files(
         args.model,
         args.layer,
+        args.gamma,
         args.feat_dir,
         args.output_dir,
         args.chunk_limit,

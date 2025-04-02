@@ -14,7 +14,7 @@ def adaptive_res_search(
     num_clusters: int,
     initial_res: float = 0.02,
     alpha: float = 0.01,
-    max_iters: int = 10,
+    max_iters: int = 50,
     tol: float = 1e-6,
     patience: int = 3,
     min_alpha: float = 1e-5,
@@ -131,7 +131,7 @@ def cluster(
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Run clustering on precomputed graph.")
-    parser.add_argument("gamma", type=float, help="Gamma value for processing.")
+    parser.add_argument("model", type=str, help="Gamma value for processing.")
     parser.add_argument("layer", type=int, help="Layer number for processing.")
     parser.add_argument("out_dir", type=Path, help="Output directory base path.")
     parser.add_argument("--num_clusters", default=DEV_CLEAN_CLUSTERS, type=int)
@@ -140,7 +140,7 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     cluster(
-        args.gamma,
+        args.model,
         args.layer,
         args.out_dir,
         threshold=args.threshold,

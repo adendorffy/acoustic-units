@@ -51,7 +51,7 @@ def build_graph_from_chunks(dist_dir: Path, threshold: float = 0.4) -> ig.Graph:
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="Build graph from distance chunks.")
-    parser.add_argument("gamma", type=float, help="Gamma value for processing.")
+    parser.add_argument("model", type=str, help="Gamma value for processing.")
     parser.add_argument("layer", type=int, help="Layer number for processing.")
     parser.add_argument(
         "out_dir", type=Path, help="Directory for output and distances."
@@ -61,8 +61,8 @@ if __name__ == "__main__":
     )
     args = parser.parse_args()
 
-    dist_dir = args.out_dir / "distances" / str(args.gamma) / str(args.layer)
-    output_dir = args.out_dir / str(args.gamma) / str(args.layer)
+    dist_dir = args.out_dir / "distances" / str(args.model) / str(args.layer)
+    output_dir = args.out_dir / str(args.model) / str(args.layer)
     output_dir.mkdir(exist_ok=True, parents=True)
 
     graph_path = output_dir / f"graph_t{args.threshold}.pkl"

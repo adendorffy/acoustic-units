@@ -86,22 +86,22 @@ def cut_encoding(
 
 
 def main(model_name: str, layer: int, gamma: float):
-    model_name = model_name.upper()
     sr = 16000
     align_dir = Path("librispeech/alignments")
     align_df = pd.read_csv(align_dir / "alignments.csv")
     features_dir = Path(f"my-features/{model_name}/{layer}/gamma{gamma}")
     features_dir.mkdir(parents=True, exist_ok=True)
 
+    feat_paths = list(features_dir.rglob("*.npy"))
+
     try:
-        bundle = getattr(torchaudio.pipelines, model_name)
+        bundle = getattr(torchaudio.pipelines, model_name.upper())
     except AttributeError:
-        raise ValueError(f"Invalid model name: {model_name}")
+        raise ValueError(f"Invalid model name: {model_name.upper()}")
 
     model = bundle.get_model()
     model.eval()
 
-    # Load a test file and alignment
     audio_dir = Path("librispeech/audio")
     audio_ext = ".flac"
 
@@ -127,6 +127,13 @@ def main(model_name: str, layer: int, gamma: float):
 
         for w in range(1, max(wav_df["word_id"]) + 1):
             word_df = wav_df[wav_df["word_id"] == w]
+            save_path = (
+                features_dir
+                / path.relative_to(audio_dir).parent
+                / f"{path.stem}_{w}.npy"
+            )
+            if save_path in feat_paths:
+                continue
 
             word_encoding = cut_encoding(
                 encoding,
@@ -136,11 +143,6 @@ def main(model_name: str, layer: int, gamma: float):
             if len(word_encoding) > 0:
                 codes = segment(word_encoding, kmeans.cluster_centers_, gamma)
 
-            save_path = (
-                features_dir
-                / path.relative_to(audio_dir).parent
-                / f"{path.stem}_{w}.npy"
-            )
             save_path.parent.mkdir(parents=True, exist_ok=True)
             np.save(save_path, codes)
 
