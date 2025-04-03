@@ -68,7 +68,7 @@ def adaptive_res_search(
             alpha *= alpha_boost
             worsening_steps = 0
 
-        new_res = max(0.001, min(res + alpha * grad, 5.0))
+        new_res = max(0.000, min(res + alpha * grad, 5.0))
 
         if abs(new_res - res) < tol:
             print("Resolution is stabilizing. Stopping search.")
