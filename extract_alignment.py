@@ -71,89 +71,16 @@ def extract_alignments(align_dir: Path) -> pd.DataFrame:
     alignments_df.to_csv(align_dir / "alignments.csv")
     print(f"Stored alignments to {align_dir / 'alignments.csv'}")
 
-    return alignments_df
-
-
-def match_to_feat_paths(
-    gamma: float,
-    layer: int,
-    alignments_df: pd.DataFrame,
-    feat_dir: Path,
-    out_path: Path,
-) -> None:
-    out_path.mkdir(parents=True, exist_ok=True)
-    file_path = out_path / "alignments_aligned_to_features.csv"
-
-    if file_path.exists():
-        print("Alignments are already aligned to features.")
-        return
-
-    paths = sorted(
-        Path(feat_dir / str(gamma) / str(layer)).rglob("**/*.npy"),
-        key=lambda x: int(x.stem.split("_")[-1]),
-    )
-
-    texts = []
-    phones = []
-    starts, ends = [], []
-    filenames = []
-    prev_progress = -1
-
-    print("Getting Alignments in order...", flush=True)
-    for i, path in enumerate(paths, 1):
-        filename_parts = path.stem.split("_")
-        wav_df = alignments_df[alignments_df["filename"] == filename_parts[0]]
-        word_df = wav_df[wav_df["word_id"] == int(filename_parts[1]) + 1]
-
-        texts.append(str(word_df["text"].iloc[0]))
-
-        word_phones = str(word_df["phones"].iloc[0]).split(",")
-        word_phones = " ".join(word_phones)
-        phones.append(word_phones)
-
-        starts.append(word_df["word_start"].iloc[0])
-        ends.append(word_df["word_end"].iloc[0])
-
-        filenames.append(filename_parts[0])
-
-        progress = int((i / len(paths)) * 100)
-        if progress % 10 == 0 and progress > prev_progress:
-            print(f"🟢 Progress: {progress}% ({i}/{len(paths)} files)")
-            prev_progress = progress
-
-    df = pd.DataFrame(
-        {
-            "filename": filenames,
-            "text": texts,
-            "phones": phones,
-            "start": starts,
-            "end": ends,
-        }
-    )
-
-    df.to_csv(file_path)
-
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Extract alignments from TextGrid files."
     )
-    parser.add_argument(
-        "gamma", type=float, help="Gamma value used for feature extraction."
-    )
-    parser.add_argument("layer", type=int, help="Layer number for processing.")
+
     parser.add_argument(
         "align_dir", type=Path, help="Path to the directory containing TextGrid files."
     )
-    parser.add_argument(
-        "feat_dir", type=Path, help="Path to the directory with encodings."
-    )
-    parser.add_argument("out_path", type=Path, help="Path to store alignments at.")
 
     args = parser.parse_args()
 
-    alignments_df = extract_alignments(args.align_dir)
-
-    match_to_feat_paths(
-        args.gamma, args.layer, alignments_df, args.feat_dir, args.out_path
-    )
+    extract_alignments(args.align_dir)

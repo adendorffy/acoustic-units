@@ -1,6 +1,5 @@
 import argparse
 from pathlib import Path
-from convert_partition import get_partition_path
 from intervaltree import Interval
 import pandas as pd
 import re
@@ -41,7 +40,7 @@ def convert_to_intervals(align_df: pd.DataFrame):
             (speaker, Interval(float(start_time), float(end_time)), phones, word)
         )
 
-    return fragments, non_silence_fragments, dirty_fragments
+    return fragments, non_silence_fragments
 
 
 def build_speaker_trees(gold_fragments):
@@ -220,9 +219,6 @@ def word_purity(
 
             if cluster_distances:
                 avg_cluster_ned = statistics.mean(cluster_distances)
-                f.write(
-                    f"Distances: {', '.join(f'{d:.2f}' for d in set(cluster_distances))}\n"
-                )
 
                 f.write(
                     f"→ Avg word purity for Cluster {cluster_id}: {avg_cluster_ned:.4f}\n"
@@ -237,29 +233,22 @@ def word_purity(
     return overall_avg
 
 
-def convert_dirty_fragments_to_csv(dirty_fragments, save_path):
-    filenames = [filename for filename, _, _ in dirty_fragments]
-    starts = [interval.begin for _, interval, _ in dirty_fragments]
-    ends = [interval.end for _, interval, _ in dirty_fragments]
-    phones = [phone for _, _, phone in dirty_fragments]
-
-    df = pd.DataFrame(
-        {"filename": filenames, "start": starts, "end": ends, "phones": phones},
-        columns=["filename", "start", "end", "phones"],
-    )
-    df.to_csv(save_path, index=False)
-    print(f"Saved dirty fragments to {save_path}")
-
-
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description=".")
     parser.add_argument(
-        "gamma", type=float, help="Gamma value used for feature extraction."
+        "model",
+        type=str,
+        default="hubert_base",
+        help="Model name from torchaudio.pipelines",
     )
     parser.add_argument("layer", type=int, help="Layer number for processing.")
+    parser.add_argument(
+        "gamma", type=float, help="Gamma value used for feature extraction."
+    )
+
     parser.add_argument("threshold", type=float, help="Threshold at whic to extract.")
     parser.add_argument(
-        "output_dir",
+        "results_dir",
         help="path to the discovered fragments.",
         type=Path,
     )
@@ -269,48 +258,38 @@ if __name__ == "__main__":
         help="path to the directory of alignments.",
         type=Path,
     )
-    parser.add_argument(
-        "--override",
-        help="To override the normal path",
-        default=None,
-        type=Path,
-    )
+
     parser.add_argument(
         "--silences",
         help="Use silences in NED calculation.",
         action="store_true",
     )
     args = parser.parse_args()
-    if args.override:
-        print(f"Use override path: {args.override}")
-        list_dir = args.override
-    else:
-        _, resolution = get_partition_path(
-            args.gamma, args.layer, args.threshold, args.output_dir
-        )
 
-        list_dir = (
-            args.output_dir / str(args.gamma) / str(args.layer) / f"{resolution:.6g}"
-        )
-        print(f"Resolution found: {resolution}, using list directory: {list_dir}")
-    files = list_dir.rglob("*.list")
+    file = (
+        args.results_dir
+        / f"{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}.txt"
+    )
+
     discovered_fragments = []
-    for file in files:
-        with open(file, "r") as f:
-            start_time = 0.0
-            for line in f:
-                if len(line.split(" ")) == 2:
-                    end_time, cluster = line.split(" ")
-                    speaker = file.stem
-                    discovered_fragments.append(
-                        (
-                            speaker,
-                            Interval(float(start_time), float(end_time)),
-                            int(cluster),
-                        )
+    with open(file, "r") as f:
+        start_time = 0.0
+        cluster_id = None
+        end_time = 0.0
+        for line in f:
+            if "Class" in line:
+                cluster_id = int(line.split(" ")[1])
+            if len(line.split(" ")) == 3:
+                speaker, start_time, end_time = line.split(" ")
+                discovered_fragments.append(
+                    (
+                        speaker,
+                        Interval(float(start_time), float(end_time)),
+                        int(cluster_id),
                     )
+                )
 
-                    start_time = float(end_time)
+                start_time = float(end_time)
 
     discovered_clusters = [cluster for _, _, cluster in discovered_fragments]
 
@@ -319,12 +298,8 @@ if __name__ == "__main__":
     )
 
     alignment_df = pd.read_csv(args.align_dir / "alignments.csv")
-    gold_fragments, total_non_silence, dirty_fragments = convert_to_intervals(
-        alignment_df
-    )
-    print(f"Dirty fragments: {len(dirty_fragments)}, ex: {dirty_fragments[0]}")
+    gold_fragments, total_non_silence = convert_to_intervals(alignment_df)
 
-    convert_dirty_fragments_to_csv(dirty_fragments, "output/dirty_fragments.csv")
     trees = build_speaker_trees(gold_fragments)
 
     discovered_transcriptions = transcribe(discovered_fragments, trees, args.silences)
@@ -332,13 +307,29 @@ if __name__ == "__main__":
     print(
         f"Correct number of tokens (non-silence fragments): {'YES' if len(discovered_transcriptions) == total_non_silence else 'NO'} [{total_non_silence}|{len(discovered_transcriptions)}]"
     )
+
+    out_dir = args.results_dir / "clusters"
+    out_dir.mkdir(parents=True, exist_ok=True)
+
     if args.silences:
-        ned_value = ned(discovered_transcriptions, list_dir / "00_silences_ned.txt")
+        ned_value = ned(
+            discovered_transcriptions,
+            out_dir
+            / f"sil_{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_ned.txt",
+        )
         word_purity_value = word_purity(
-            discovered_transcriptions, list_dir / "00_silences_word_purity.txt"
+            discovered_transcriptions,
+            out_dir
+            / f"sil{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_wp.txt",
         )
     else:
-        ned_value = ned(discovered_transcriptions, list_dir / "00_ned.txt")
+        ned_value = ned(
+            discovered_transcriptions,
+            out_dir
+            / f"{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_ned.txt",
+        )
         word_purity_value = word_purity(
-            discovered_transcriptions, list_dir / "00_word_purity.txt"
+            discovered_transcriptions,
+            out_dir
+            / f"{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_wp.txt",
         )
