@@ -8,15 +8,24 @@ import random
 
 
 def main(audio_dir: Path, audio_ext: str, model_name: str, layer: int):
+    num_sample = 2703
     features_dir = Path("raw_features") / audio_dir / model_name
     features_dir.mkdir(parents=True, exist_ok=True)
 
     feature_paths = list(features_dir.rglob("**/*.npy"))
+    print(f"Found {len(feature_paths)} feature files in {features_dir}", flush=True)
+    if len(feature_paths) >= num_sample:
+        print(
+            f"All {num_sample} features already processed and saved in {features_dir}.",
+            flush=True,
+        )
+        return
     model_name = model_name.upper()
     sr = 16000
 
     audio_paths = list(audio_dir.rglob(f"**/*{audio_ext}"))
-    audio_paths = random.sample(audio_paths, min(2703, len(audio_paths)))
+    audio_paths = random.sample(audio_paths, min(num_sample, len(audio_paths)))
+
     print(f"Encoding {len(audio_paths)} audio files from {audio_dir}", flush=True)
 
     try:

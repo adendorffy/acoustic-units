@@ -20,7 +20,7 @@ def main(
 ):
     raw_features_dir = Path("raw_features") / audio_dir / model_name
     feature_paths = list(raw_features_dir.rglob("**/*.npy"))
-    print(f"Found {len(feature_paths)} feature files in {raw_features_dir}")
+
     if len(feature_paths) == 0:
         raise ValueError(f"No feature files found in {raw_features_dir}")
 
