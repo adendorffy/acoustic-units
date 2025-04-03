@@ -146,8 +146,8 @@ if __name__ == "__main__":
 
     calculate_dist_files(
         args.model,
-        args.layer,
         args.gamma,
+        args.layer,
         args.feat_dir,
         args.output_dir,
         args.chunk_limit,
