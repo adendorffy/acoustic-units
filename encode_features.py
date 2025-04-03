@@ -75,7 +75,7 @@ def cut_encoding(
 
 
 def main(
-    raw_features_dir: Path,
+    audio_dir: Path,
     align_dir: Path,
     model_name: str,
     layer: int,
@@ -84,7 +84,9 @@ def main(
 ):
     align_df = pd.read_csv(align_dir / "alignments.csv")
 
+    raw_features_dir = Path("raw_features") / audio_dir / model_name
     raw_paths = list(raw_features_dir.rglob("**/*.npy"))
+
     print(f"Encoding {len(raw_paths)} audio files from {raw_features_dir}", flush=True)
 
     try:
@@ -99,7 +101,7 @@ def main(
     features_dir.mkdir(parents=True, exist_ok=True)
     feat_paths = list(features_dir.rglob("**/*.npy"))
 
-    kmeans_path = f"models/kmeans_{model_name}_layer{layer}_k{n_clusters}.pkl"
+    kmeans_path = f"kmeans_models/kmeans_{model_name}_layer{layer}_k{n_clusters}.pkl"
     kmeans = joblib.load(kmeans_path)
     print(f"Loaded KMeans model from {kmeans_path}", flush=True)
 
@@ -142,9 +144,10 @@ def main(
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument(
-        "raw_features_dir",
+        "audio_dir",
         type=Path,
-        help="Path to the directory containing raw model features",
+        default="librispeech/dev-clean",
+        help="Directory containing audio files",
     )
     parser.add_argument(
         "align_dir",
@@ -168,7 +171,7 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
     main(
-        args.raw_features_dir,
+        args.audio_dir,
         args.align_dir,
         args.model,
         args.layer,

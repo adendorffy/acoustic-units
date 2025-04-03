@@ -43,8 +43,8 @@ def calculate_edit_distance(
 
 def calculate_dist_files(
     model: str,
-    gamma: float,
     layer: int,
+    gamma: float,
     feat_dir: Path,
     output_dir: Path,
     chunk_limit: int = 5_000_000,
@@ -119,12 +119,7 @@ if __name__ == "__main__":
         required=True,
         help="Model name (e.g., wavlm, wav2vec2)",
     )
-    parser.add_argument(
-        "gamma",
-        type=float,
-        required=True,
-        help="Gamma value for distance calculation",
-    )
+
     parser.add_argument(
         "layer",
         type=int,
@@ -132,23 +127,17 @@ if __name__ == "__main__":
         help="Layer number for feature extraction",
     )
     parser.add_argument(
-        "feat_dir",
-        type=Path,
+        "gamma",
+        type=float,
         required=True,
-        help="Path to the directory containing feature files",
-    )
-    parser.add_argument(
-        "output_dir",
-        type=Path,
-        required=True,
-        help="Path to the output directory for saving distances",
+        help="Gamma value for distance calculation",
     )
     args = parser.parse_args()
 
     calculate_dist_files(
         args.model,
-        args.gamma,
         args.layer,
-        args.feat_dir,
-        args.output_dir,
+        args.gamma,
+        Path("features"),
+        Path("output"),
     )
