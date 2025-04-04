@@ -116,24 +116,22 @@ if __name__ == "__main__":
     parser.add_argument(
         "model",
         type=str,
-        required=True,
         help="Model name (e.g., wavlm, wav2vec2)",
     )
 
     parser.add_argument(
         "layer",
         type=int,
-        required=True,
         help="Layer number for feature extraction",
     )
     parser.add_argument(
         "gamma",
         type=float,
-        required=True,
         help="Gamma value for distance calculation",
     )
     args = parser.parse_args()
 
+    print(f"distance.y [{args.model} {args.layer} {args.gamma}]", flush=True)
     calculate_dist_files(
         args.model,
         args.layer,

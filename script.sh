@@ -1,3 +1,4 @@
+#!/bin/bash
 
 MODEL="wavlm_large"
 LAYER=11
@@ -8,12 +9,19 @@ ALIGN_DIR="librispeech/alignments/dev-clean"
 N_CLUSTERS=500
 GAMMA=0.5
 
-python extract_features.py "$KMEANS_DATA_DIR" "$AUDIO_EXT" "$MODEL" "$LAYER" 
+echo "🔍 Extracting features from training data for k-means clustering..."
+python extract_features.py "$KMEANS_DATA_DIR" "$AUDIO_EXT" "$MODEL" "$LAYER"
 
-python kmeans.py "$KMEANS_DATA_DIR" "$MODEL" "$LAYER"  "$N_CLUSTERS"
+echo "📊 Running k-means clustering on extracted features..."
+python kmeans.py "$KMEANS_DATA_DIR" "$MODEL" "$LAYER" "$N_CLUSTERS"
 
+echo "🔍 Extracting features from development data for encoding..."
 python extract_features.py "$DATA_DIR" "$AUDIO_EXT" "$MODEL" "$LAYER"
 
-python encode_features.py "$DATA_DIR" "$ALIGN_DIR" "$MODEL" "$LAYER" "$N_CLUSTERS"
+echo "🎯 Encoding development data using learned clusters..."
+python encode_features.py "$DATA_DIR" "$ALIGN_DIR" "$MODEL" "$LAYER" "$GAMMA" "$N_CLUSTERS"
 
-python distance.py  "$MODEL" "$LAYER" "$GAMMA" 
+echo "📏 Computing distances between encoded segments with gamma=$GAMMA..."
+python distance.py "$MODEL" "$LAYER" "$GAMMA"
+
+echo "✅ All steps completed successfully!"

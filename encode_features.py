@@ -97,7 +97,9 @@ def main(
     model = bundle.get_model()
     model.eval()
 
-    features_dir = Path(f"features/{model_name}/layer{layer}/gamma{gamma}")
+    features_dir = Path(
+        f"features/{model_name}/layer{layer}/gamma{gamma}/k{n_clusters}"
+    )
     features_dir.mkdir(parents=True, exist_ok=True)
     feat_paths = list(features_dir.rglob("**/*.npy"))
 
@@ -170,6 +172,10 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    print(
+        f"encode_features.py, [{args.audio_dir}, {args.align_dir}, {args.model}, {args.layer}, {args.gamma}, {args.n_clusters}]",
+        flush=True,
+    )
     main(
         args.audio_dir,
         args.align_dir,

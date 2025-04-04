@@ -18,18 +18,19 @@ def main(
     n_clusters: int,
     batch_size: int = 500,
 ):
-    raw_features_dir = Path("raw_features") / audio_dir / model_name
-    feature_paths = list(raw_features_dir.rglob("**/*.npy"))
-
-    if len(feature_paths) == 0:
-        raise ValueError(f"No feature files found in {raw_features_dir}")
-
     model_out = (
         Path("kmeans_models") / f"kmeans_{model_name}_layer{layer}_k{n_clusters}.pkl"
     )
     if model_out.exists():
         print(f"KMeans model already exists at {model_out}. Exiting.", flush=True)
         return
+
+    raw_features_dir = Path("raw_features") / audio_dir / model_name
+    feature_paths = list(raw_features_dir.rglob("**/*.npy"))
+
+    if len(feature_paths) == 0:
+        raise ValueError(f"No feature files found in {raw_features_dir}")
+
     kmeans = MiniBatchKMeans(
         n_clusters=n_clusters, random_state=0, batch_size=batch_size
     )
@@ -85,4 +86,8 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    print(
+        f"kmeans.py, [{args.audio_dir}, {args.model}, {args.layer}, {args.n_clusters}]",
+        flush=True,
+    )
     main(args.audio_dir, args.model, args.layer, args.n_clusters)

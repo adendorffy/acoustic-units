@@ -13,7 +13,10 @@ def main(audio_dir: Path, audio_ext: str, model_name: str, layer: int):
     features_dir.mkdir(parents=True, exist_ok=True)
 
     feature_paths = list(features_dir.rglob("**/*.npy"))
-    print(f"Found {len(feature_paths)} feature files in {features_dir}", flush=True)
+    print(
+        f"Found {len(feature_paths)} feature files in {features_dir}",
+        flush=True,
+    )
     if len(feature_paths) >= num_sample:
         print(
             f"All {num_sample} features already processed and saved in {features_dir}.",
@@ -25,7 +28,13 @@ def main(audio_dir: Path, audio_ext: str, model_name: str, layer: int):
 
     audio_paths = list(audio_dir.rglob(f"**/*{audio_ext}"))
     audio_paths = random.sample(audio_paths, min(num_sample, len(audio_paths)))
-
+    if len(audio_paths) < num_sample:
+        print(
+            f"Only {len(audio_paths)} audio files found. "
+            f"Please check the audio directory and extension.",
+            flush=True,
+        )
+        return
     print(f"Encoding {len(audio_paths)} audio files from {audio_dir}", flush=True)
 
     try:
@@ -47,7 +56,7 @@ def main(audio_dir: Path, audio_ext: str, model_name: str, layer: int):
         if save_path in feature_paths:
             continue
 
-        waveform, sr = torchaudio.load(path)
+        waveform, sr = torchaudio.load(str(path))
         if sr != 16000:
             waveform = torchaudio.functional.resample(waveform, sr, 16000)
 
@@ -81,4 +90,8 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+    print(
+        f"extract_features.py, [{args.audio_dir}, {args.audio_ext}, {args.model_name}, {args.layer}]",
+        flush=True,
+    )
     main(args.audio_dir, args.audio_ext, args.model_name, args.layer)

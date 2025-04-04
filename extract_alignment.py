@@ -83,4 +83,5 @@ if __name__ == "__main__":
 
     args = parser.parse_args()
 
+    print(f"extract_alignment.py [{args.align_dir}]", flush=True)
     extract_alignments(args.align_dir)
