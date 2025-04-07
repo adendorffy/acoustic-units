@@ -7,7 +7,6 @@ import argparse
 from sklearn.metrics import roc_auc_score, roc_curve
 import editdistance
 import numpy as np
-import joblib
 import matplotlib.pyplot as plt
 
 
@@ -27,6 +26,7 @@ def label_pair(row):
 def create_samediff_dataset(align_df: pd.DataFrame, out_dir: Path):
     segments = []
     seen_speakers = set()
+    align_df = align_df[align_df["text"].notna()]
     for filename in tqdm(align_df["filename"].unique(), desc="Processing files"):
         speaker = filename.split("-")[0]
         if speaker not in seen_speakers:
@@ -138,23 +138,22 @@ def create_samediff_dataset(align_df: pd.DataFrame, out_dir: Path):
 
 
 def load_encodings(feat_dir: Path, align_df: pd.DataFrame, filenames_in_pairs_df: set):
-    if (feat_dir / "word_encodings.pkl").exists():
-        print("✅ Word encodings already exist. Loading...")
-        return joblib.load(feat_dir / "word_encodings.pkl")
     encodings = {}
+    text = {}
+    paths = list(feat_dir.glob("**/*.npy"))
+    paths = [
+        path
+        for path in tqdm(paths, desc="Filtering files")
+        if (
+            path.stem.split("_")[0] in filenames_in_pairs_df
+            and path.stem.split("_")[0] in align_df["filename"].values
+        )
+    ]
 
-    for file in tqdm(
-        feat_dir.glob("**/*.npy"),
-        desc="Loading encodings",
-        total=len(list(feat_dir.glob("**/*.npy"))),
-    ):
+    for file in tqdm(paths, desc="Loading encodings"):
         filename = file.stem.split("_")[0]
         word_id = int(file.stem.split("_")[1])
-        if (
-            filename not in align_df["filename"].values
-            or filename not in filenames_in_pairs_df
-        ):
-            continue
+
         file_df = align_df[align_df["filename"] == filename]
 
         if word_id not in file_df["word_id"].values:
@@ -167,9 +166,9 @@ def load_encodings(feat_dir: Path, align_df: pd.DataFrame, filenames_in_pairs_df
 
         key = (filename, float(start_time), float(end_time))
         encodings[key] = np.load(file)
+        text[key] = str(word_df["text"].values[0])
 
-    joblib.dump(encodings, feat_dir / "word_encodings.pkl")
-    return encodings
+    return encodings, text
 
 
 def same_different_evaluation(
@@ -181,7 +180,7 @@ def same_different_evaluation(
     )
 
     filenames_in_pairs_df = set(pairs_df["file1"]).union(set(pairs_df["file2"]))
-    word_encodings = load_encodings(feat_dir, align_df, filenames_in_pairs_df)
+    word_encodings, text = load_encodings(feat_dir, align_df, filenames_in_pairs_df)
 
     skipped = 0
     labels = []
@@ -202,7 +201,6 @@ def same_different_evaluation(
 
         d = editdistance.eval(seq1, seq2) / max(len(seq1), len(seq2))
         score = -d
-
         labels.append(row["label"])
         scores.append(score)
 
@@ -229,7 +227,6 @@ def same_different_evaluation(
     # Save first, then show (optional)
     plt.savefig(out_file, dpi=300, bbox_inches="tight")
     print(f"✅ ROC curve saved to {out_file}")
-    plt.show()
 
 
 if __name__ == "__main__":

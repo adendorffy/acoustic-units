@@ -1,13 +1,13 @@
 #!/bin/bash
 
-MODEL="wavlm_large"
-LAYER=11
+MODEL="wavlm_base"
+LAYER=7
 KMEANS_DATA_DIR="librispeech/train-clean-100"
 AUDIO_EXT=".flac"
 DATA_DIR="librispeech/dev-clean"
 ALIGN_DIR="librispeech/alignments/dev-clean"
 N_CLUSTERS=(50 100 200 500)
-GAMMA=0.5
+GAMMA=0.0
 
 for n in "${N_CLUSTERS[@]}"; do
     echo "🔍 Extracting features from training data for k-means clustering..."
@@ -23,9 +23,9 @@ for n in "${N_CLUSTERS[@]}"; do
     python encode_features.py "$DATA_DIR" "$ALIGN_DIR" "$MODEL" "$LAYER" "$GAMMA" "$n"
 
     echo "Calculating samediff..."
-    python samediff.py "features/$MODEL/layer$LAYER/gamma$GAMMA/k$n" "output/" "$ALIGN_DIR" 
+    python samediff.py "features/$MODEL/layer$LAYER/gamma$GAMMA/k$n" "samediff_output/" "$ALIGN_DIR" 
 
-    echo "✅ Completed iteration with $n clusters!"
+    echo "✅ Completed iteration with N_CLUSTERS = $n!"
 done
 
 echo "🎉 All steps completed successfully!"
