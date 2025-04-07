@@ -1,5 +1,4 @@
 import torch
-import torchaudio
 from pathlib import Path
 import pandas as pd
 import joblib
@@ -57,7 +56,7 @@ def _backtrack(alpha, P):
         rhs = lhs
     segments.reverse()
     boundaries.reverse()
-    return segments
+    return np.array(segments)
 
 
 def get_frame_num(timestamp: float, sample_rate: int, frame_size_ms: int) -> int:
@@ -96,21 +95,13 @@ def main(
 
     print(f"Encoding {len(raw_paths)} audio files from {raw_features_dir}", flush=True)
 
-    try:
-        bundle = getattr(torchaudio.pipelines, model_name.upper())
-    except AttributeError:
-        raise ValueError(f"Invalid model name: {model_name.upper()}")
-
-    model = bundle.get_model()
-    model.eval()
-
     features_dir = Path(
         f"features/{model_name}/layer{layer}/gamma{gamma}/k{n_clusters}"
     )
     features_dir.mkdir(parents=True, exist_ok=True)
     feat_paths = list(features_dir.rglob("**/*.npy"))
 
-    if len(feat_paths) == len(raw_paths):
+    if len(feat_paths) >= len(raw_paths):
         print(
             f"All {len(feat_paths)} features already encoded in {features_dir}. Skipping encoding.",
             flush=True,
