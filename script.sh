@@ -6,7 +6,7 @@ KMEANS_DATA_DIR="librispeech/train-clean-100"
 AUDIO_EXT=".flac"
 DATA_DIR="librispeech/dev-clean"
 ALIGN_DIR="librispeech/alignments/dev-clean"
-N_CLUSTERS=(100 200 300 400 500)
+N_CLUSTERS=(50 100 200 300 400 500)
 GAMMA=0.1
 
 for n in "${N_CLUSTERS[@]}"; do
