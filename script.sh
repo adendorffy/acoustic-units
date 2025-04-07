@@ -22,6 +22,6 @@ echo "🎯 Encoding development data using learned clusters..."
 python encode_features.py "$DATA_DIR" "$ALIGN_DIR" "$MODEL" "$LAYER" "$GAMMA" "$N_CLUSTERS"
 
 echo "📏 Computing distances between encoded segments with gamma=$GAMMA..."
-python distance.py "$MODEL" "$LAYER" "$GAMMA"
+python distance.py "$MODEL" "$LAYER" "$GAMMA" "$N_CLUSTERS" 
 
 echo "✅ All steps completed successfully!"

@@ -45,11 +45,12 @@ def calculate_dist_files(
     model: str,
     layer: int,
     gamma: float,
+    n_clusters: int,
     feat_dir: Path,
     output_dir: Path,
     chunk_limit: int = 5_000_000,
 ):
-    feature_dir = feat_dir / model / f"layer{layer}" / f"gamma{gamma}"
+    feature_dir = feat_dir / model / f"layer{layer}" / f"gamma{gamma}/k{n_clusters}"
     paths = list(feature_dir.rglob("**/*.npy"))
     sample_size = len(paths)
     if sample_size < 2:
@@ -129,13 +130,22 @@ if __name__ == "__main__":
         type=float,
         help="Gamma value for distance calculation",
     )
+    parser.add_argument(
+        "n_clusters",
+        type=int,
+        help="Number of clusters in kmeans model",
+    )
     args = parser.parse_args()
 
-    print(f"distance.y [{args.model} {args.layer} {args.gamma}]", flush=True)
+    print(
+        f"distance.y [{args.model} {args.layer} {args.gamma} {args.n_clusters}]",
+        flush=True,
+    )
     calculate_dist_files(
         args.model,
         args.layer,
         args.gamma,
+        args.n_clusters,
         Path("features"),
         Path("output"),
     )

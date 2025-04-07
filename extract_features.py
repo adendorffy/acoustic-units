@@ -9,7 +9,7 @@ import random
 
 def main(audio_dir: Path, audio_ext: str, model_name: str, layer: int):
     num_sample = 2703
-    features_dir = Path("raw_features") / audio_dir / model_name
+    features_dir = Path("raw_features") / audio_dir / model_name / f"layer{layer}"
     features_dir.mkdir(parents=True, exist_ok=True)
 
     feature_paths = list(features_dir.rglob("**/*.npy"))

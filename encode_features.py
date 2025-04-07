@@ -84,8 +84,15 @@ def main(
 ):
     align_df = pd.read_csv(align_dir / "alignments.csv")
 
-    raw_features_dir = Path("raw_features") / audio_dir / model_name
+    raw_features_dir = Path("raw_features") / audio_dir / model_name / f"layer{layer}"
     raw_paths = list(raw_features_dir.rglob("**/*.npy"))
+
+    if len(raw_paths) == 0:
+        print(
+            f"No raw features found in {raw_features_dir}. Please run the feature extraction script first.",
+            flush=True,
+        )
+        return
 
     print(f"Encoding {len(raw_paths)} audio files from {raw_features_dir}", flush=True)
 
@@ -103,9 +110,18 @@ def main(
     features_dir.mkdir(parents=True, exist_ok=True)
     feat_paths = list(features_dir.rglob("**/*.npy"))
 
+    if len(feat_paths) == len(raw_paths):
+        print(
+            f"All {len(feat_paths)} features already encoded in {features_dir}. Skipping encoding.",
+            flush=True,
+        )
+        return
     kmeans_path = f"kmeans_models/kmeans_{model_name}_layer{layer}_k{n_clusters}.pkl"
     kmeans = joblib.load(kmeans_path)
-    print(f"Loaded KMeans model from {kmeans_path}", flush=True)
+    print(
+        f"Loaded KMeans model from {kmeans_path} to encode {len(feat_paths)} features.",
+        flush=True,
+    )
 
     paths = []
     for path in tqdm(
@@ -115,6 +131,9 @@ def main(
     ):
         wav_df = align_df[align_df["filename"] == path.stem]
         encoding = np.load(path)
+        if wav_df.empty:
+            print(f"No alignment found for {path.stem}. Skipping.", flush=True)
+            continue
 
         for w in range(1, max(wav_df["word_id"]) + 1):
             word_df = wav_df[wav_df["word_id"] == w]

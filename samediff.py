@@ -142,23 +142,31 @@ def load_encodings(feat_dir: Path, align_df: pd.DataFrame, filenames_in_pairs_df
         print("✅ Word encodings already exist. Loading...")
         return joblib.load(feat_dir / "word_encodings.pkl")
     encodings = {}
-    grouped = align_df.groupby("filename")
+
     for file in tqdm(
         feat_dir.glob("**/*.npy"),
         desc="Loading encodings",
         total=len(list(feat_dir.glob("**/*.npy"))),
     ):
         filename = file.stem.split("_")[0]
-        if filename not in grouped.groups or filename not in filenames_in_pairs_df:
+        word_id = int(file.stem.split("_")[1])
+        if (
+            filename not in align_df["filename"].values
+            or filename not in filenames_in_pairs_df
+        ):
             continue
-        file_df = grouped.get_group(filename)
-        for word_id in file_df["word_id"].unique():
-            word_df = file_df[file_df["word_id"] == word_id]
-            start_time = word_df["word_start"].values[0]
-            end_time = word_df["word_end"].values[0]
+        file_df = align_df[align_df["filename"] == filename]
 
-            key = (filename, float(start_time), float(end_time))
-            encodings[key] = np.load(file)
+        if word_id not in file_df["word_id"].values:
+            print(f"⚠️ Word ID {word_id} not found in {filename}. Skipping.")
+            continue
+
+        word_df = file_df[file_df["word_id"] == word_id]
+        start_time = word_df["word_start"].iloc[0]
+        end_time = word_df["word_end"].iloc[0]
+
+        key = (filename, float(start_time), float(end_time))
+        encodings[key] = np.load(file)
 
     joblib.dump(encodings, feat_dir / "word_encodings.pkl")
     return encodings
@@ -167,14 +175,12 @@ def load_encodings(feat_dir: Path, align_df: pd.DataFrame, filenames_in_pairs_df
 def same_different_evaluation(
     pairs_df: pd.DataFrame, feat_dir: Path, align_df: pd.DataFrame, out_dir: Path
 ):
-    file_info = str(feat_dir).split("/")[-1]
+    file_info = str(feat_dir).split("/")
     out_file = (
         out_dir / f"roc_{file_info[0]}_{file_info[1]}_{file_info[2]}_{file_info[3]}.png"
     )
 
-    filenames_in_pairs_df = set(pairs_df["file1"].unique()).union(
-        set(pairs_df["file2"].unique())
-    )
+    filenames_in_pairs_df = set(pairs_df["file1"]).union(set(pairs_df["file2"]))
     word_encodings = load_encodings(feat_dir, align_df, filenames_in_pairs_df)
 
     skipped = 0
@@ -187,7 +193,10 @@ def same_different_evaluation(
         seq1 = word_encodings.get(key1)
         seq2 = word_encodings.get(key2)
 
-        if seq1 is None or seq2 is None or len(seq1) == 0 or len(seq2) == 0:
+        if seq1 is None or len(seq1) == 0:
+            skipped += 1
+            continue
+        if seq2 is None or len(seq2) == 0:
             skipped += 1
             continue
 
@@ -196,6 +205,8 @@ def same_different_evaluation(
 
         labels.append(row["label"])
         scores.append(score)
+
+    print(f"Skipped {skipped} pairs due to missing encodings.")
 
     if len(set(labels)) < 2:
         print("⚠️ Not enough positive/negative samples to compute ROC.")
