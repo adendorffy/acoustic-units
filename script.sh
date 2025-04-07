@@ -26,6 +26,11 @@ for n in "${N_CLUSTERS[@]}"; do
     python samediff.py "features/$MODEL/layer$LAYER/gamma$GAMMA/k$n" "samediff_output/" "$ALIGN_DIR" 
 
     echo "✅ Completed iteration with N_CLUSTERS = $n!"
+
+    git add .
+    git commit -m "Completed iteration with N_CLUSTERS = $n"
+    git push
+
 done
 
 echo "🎉 All steps completed successfully!"
