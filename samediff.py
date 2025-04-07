@@ -177,7 +177,7 @@ def same_different_evaluation(
 ):
     file_info = str(feat_dir).split("/")
     out_file = (
-        out_dir / f"roc_{file_info[0]}_{file_info[1]}_{file_info[2]}_{file_info[3]}.png"
+        out_dir / f"roc_{file_info[1]}_{file_info[2]}_{file_info[3]}_{file_info[4]}.png"
     )
 
     filenames_in_pairs_df = set(pairs_df["file1"]).union(set(pairs_df["file2"]))

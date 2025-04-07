@@ -141,14 +141,11 @@ if __name__ == "__main__":
     output_dir.mkdir(exist_ok=True, parents=True)
 
     graph_path = output_dir / f"graph_t{args.threshold}.pkl"
-    graph = build_graph_from_chunks(dist_dir, path_df, align_df, args.threshold)
-    with open(graph_path, "wb") as f:
-        pickle.dump(graph, f)
-    print(f"Graph saved to {graph_path}")
-    # if not graph_path.exists():
-    #     graph = build_graph_from_chunks(dist_dir, path_df, align_df, args.threshold)
-    #     with open(graph_path, "wb") as f:
-    #         pickle.dump(graph, f)
-    #     print(f"Graph saved to {graph_path}")
-    # else:
-    #     print(f"Graph already exists at {graph_path}")
+
+    if not graph_path.exists():
+        graph = build_graph_from_chunks(dist_dir, path_df, align_df, args.threshold)
+        with open(graph_path, "wb") as f:
+            pickle.dump(graph, f)
+        print(f"Graph saved to {graph_path}")
+    else:
+        print(f"Graph already exists at {graph_path}")
