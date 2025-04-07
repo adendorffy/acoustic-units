@@ -39,7 +39,7 @@ def create_samediff_dataset(align_df: pd.DataFrame, out_dir: Path):
                 continue
             base_filename = filename.split("_")[0]
             text = str(word_df["text"].values[0])
-            if not text or text == "<unk>":
+            if not text or text == "<unk>" or text == "nan":
                 continue
             segment = {
                 "filename": base_filename,

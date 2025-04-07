@@ -70,7 +70,14 @@ def calculate_dist_files(
         f"Pairs: {num_pairs}, Batches: {num_batches}",
         flush=True,
     )
-    out_dir = output_dir / model / f"layer{layer}" / f"gamma{gamma}" / "distances"
+    out_dir = (
+        output_dir
+        / model
+        / f"layer{layer}"
+        / f"gamma{gamma}"
+        / f"k{n_clusters}"
+        / "distances"
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
 
     out_paths = list(out_dir.rglob("vals_*.npy"))

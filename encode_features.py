@@ -119,7 +119,7 @@ def main(
     kmeans_path = f"kmeans_models/kmeans_{model_name}_layer{layer}_k{n_clusters}.pkl"
     kmeans = joblib.load(kmeans_path)
     print(
-        f"Loaded KMeans model from {kmeans_path} to encode {len(feat_paths)} features.",
+        f"Loaded KMeans model from {kmeans_path} to encode {len(raw_paths) - len(feat_paths)} features.",
         flush=True,
     )
 
