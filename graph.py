@@ -48,14 +48,17 @@ def build_graph_from_chunks(
     sample_size = get_n(total_size)
     print(f"💎 Total pairwise entries: {total_size}, Sample size: {sample_size}")
 
-    non_nans = [
-        (f"{row.filename}_{row.word_id}", clean_phones(row["phones"]))
-        for _, row in align_df.iterrows()
-        if clean_phones(row["phones"]) != []
+    valid_pairs = [
+        (f"{row.filename}_{row.word_id}", clean_phones(row.phones))
+        for row in align_df.itertuples(index=False)
+        if clean_phones(row.phones)  # not empty
     ]
-    indices = [
-        i for filename, _ in non_nans for i in path_df[path_df[1] == filename].index
-    ]
+    valid_keys = set(fname for fname, _ in valid_pairs)
+
+    path_df["key"] = path_df[1].astype(str)
+    mask = path_df["key"].isin(valid_keys)
+    indices = path_df[mask].index.to_list()
+    index_set = set(indices)
 
     g = ig.Graph()
     g.add_vertices(indices)
@@ -67,19 +70,22 @@ def build_graph_from_chunks(
         vals = np.load(dist_dir / f"vals_{i}.npy")
 
         mask = vals < threshold
-        edges = list(zip(rows[mask], cols[mask]))
-        weights = vals[mask].astype(float)
-        weights = np.where(weights > 0, weights, 1e-10).tolist()
+        r_filtered = rows[mask]
+        c_filtered = cols[mask]
+        w_filtered = vals[mask]
+        filtered_edges = []
+        filtered_weights = []
 
-        if edges:
-            edges = [(r, c) for r, c in edges if r in indices and c in indices]
-            weights = [
-                weights[i]
-                for i, (r, c) in enumerate(edges)
-                if r in indices and c in indices
-            ]
-            g.add_edges(edges)
-            g.es[-len(weights) :].set_attribute_values("weight", weights)
+        for r, c, w in zip(r_filtered, c_filtered, w_filtered):
+            if r in index_set and c in index_set:
+                filtered_edges.append((r, c))
+                filtered_weights.append(float(w) if w > 0 else 1e-10)
+
+        if filtered_edges:
+            g.add_edges(filtered_edges)
+            g.es[-len(filtered_weights) :].set_attribute_values(
+                "weight", filtered_weights
+            )
 
         progress = int((i / total_chunks) * 100)
         if progress % 5 == 0 and progress > prev_progress:
