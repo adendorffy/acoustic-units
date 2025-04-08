@@ -6,8 +6,8 @@ KMEANS_DATA_DIR="librispeech/train-clean-100"
 AUDIO_EXT=".flac"
 DATA_DIR="librispeech/dev-clean"
 ALIGN_DIR="librispeech/alignments/dev-clean"
-N_CLUSTERS=50
-GAMMA=0.0
+N_CLUSTERS={$2}
+GAMMA={$1}
 THRESHOLDS=(0.4 0.5 0.6 0.7 0.8 0.9)
 RESOLUTION=0.5
 
