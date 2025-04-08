@@ -48,20 +48,20 @@ def build_graph_from_chunks(
     sample_size = get_n(total_size)
     print(f"💎 Total pairwise entries: {total_size}, Sample size: {sample_size}")
 
-    valid_pairs = [
-        (f"{row.filename}_{row.word_id}", clean_phones(row.phones))
+    valid_keys = [
+        f"{row.filename}_{row.word_id}"
         for row in align_df.itertuples(index=False)
         if clean_phones(row.phones)  # not empty
     ]
-    valid_keys = set(fname for fname, _ in valid_pairs)
+    valid_df = path_df[path_df["filename"].isin(valid_keys)].copy()
+    valid_df["vertex_id"] = (
+        valid_df["filename"].str.strip().str.replace("'", "", regex=False)
+    )
 
-    path_df["key"] = path_df[1].astype(str)
-    mask = path_df["key"].isin(valid_keys)
-    indices = path_df[mask].index.to_list()
-    index_set = set(indices)
+    id_to_label = dict(zip(valid_df.index, valid_df["vertex_id"]))
 
     g = ig.Graph()
-    g.add_vertices(indices)
+    g.add_vertices(list(valid_df["vertex_id"]))
     prev_progress = -1
 
     for i in range(total_chunks):
@@ -69,28 +69,22 @@ def build_graph_from_chunks(
         cols = np.load(dist_dir / f"cols_{i}.npy")
         vals = np.load(dist_dir / f"vals_{i}.npy")
 
-        mask = vals < threshold
-        r_filtered = rows[mask]
-        c_filtered = cols[mask]
-        w_filtered = vals[mask]
-        filtered_edges = []
-        filtered_weights = []
+        threshold_mask = vals < threshold
+        r_filtered = rows[threshold_mask]
+        c_filtered = cols[threshold_mask]
+        w_filtered = vals[threshold_mask]
 
         for r, c, w in zip(r_filtered, c_filtered, w_filtered):
-            if r in index_set and c in index_set:
-                filtered_edges.append((r, c))
-                filtered_weights.append(float(w) if w > 0 else 1e-10)
-
-        if filtered_edges:
-            g.add_edges(filtered_edges)
-            g.es[-len(filtered_weights) :].set_attribute_values(
-                "weight", filtered_weights
-            )
+            if r in id_to_label and c in id_to_label:
+                g.add_edge(id_to_label[r], id_to_label[c], weight=max(w, 1e-10))
 
         progress = int((i / total_chunks) * 100)
         if progress % 5 == 0 and progress > prev_progress:
             print(f"🟢 Progress: {progress}% ({i}/{total_chunks} chunks)", flush=True)
             prev_progress = progress
+
+    g.vs["filename"] = list(valid_df["filename"])
+    g.vs["index"] = list(valid_df.index)
 
     return g
 
@@ -131,7 +125,6 @@ if __name__ == "__main__":
     )
     path_df = pd.read_csv(
         f"features/{args.model}/layer{args.layer}/gamma{args.gamma}/k{args.n_clusters}/paths.csv",
-        header=None,
     )
     align_df = pd.read_csv(args.align_dir / "alignments.csv")
     output_dir = (

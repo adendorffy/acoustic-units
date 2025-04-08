@@ -1,0 +1,7 @@
+📏 Calculating distances between segments...
+distance.y [wavlm_base 7 0.0 50]
+Loading 65840 Features.. from features/wavlm_base/layer7/gamma0.0/k50
+Pairs: 2167419880, Batches: 434
+Calculating pairwise distances...
+🟢 Progress: 0% (0/434 files)
+🟢 Progress: 5% (22/434 files)
