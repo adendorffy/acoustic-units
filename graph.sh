@@ -29,7 +29,7 @@ for n in "${N_CLUSTERS[@]}"; do
     # python distance.py "$MODEL" "$LAYER" "$GAMMA" "$n"
 
     echo "🔗 Creating graph from distances..."
-    python graph.py "$MODEL" "$LAYER" "$GAMMA" "$n"
+    python graph.py "$MODEL" "$LAYER" "$GAMMA" "$n" "$ALIGN_DIR" "$THRESHOLD" "$RESOLUTION"
 
     echo "🧩 Performing clustering..."
     python cluster.py "$MODEL" "$LAYER" "$GAMMA" "$n" "features" "$THRESHOLD" "$RESOLUTION"
