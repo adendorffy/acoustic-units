@@ -66,7 +66,6 @@ def check_boundary(gold: Interval, disc: Interval) -> bool:
 def transcribe(
     discovered_fragments: list[tuple[str, Interval, int]],
     trees: dict[str, IntervalTree],
-    silences: bool = False,
 ) -> list[tuple[str, Interval, tuple[str, ...], str]]:
     enriched_fragments = []
 
@@ -83,9 +82,6 @@ def transcribe(
                 match_found = True
 
                 if check_boundary(gold_interval, disc_interval):
-                    if not phones and not silences:
-                        continue
-
                     enriched_fragments.append(
                         (cluster, speaker, disc_interval, phones, word)
                     )
@@ -245,6 +241,11 @@ if __name__ == "__main__":
     parser.add_argument(
         "gamma", type=float, help="Gamma value used for feature extraction."
     )
+    parser.add_argument(
+        "n_clusters",
+        type=int,
+        help="Number of clusters for KMeans.",
+    )
 
     parser.add_argument("threshold", type=float, help="Threshold at whic to extract.")
 
@@ -293,10 +294,10 @@ if __name__ == "__main__":
 
     alignment_df = pd.read_csv(args.align_dir / "alignments.csv")
     gold_fragments, total_non_silence = convert_to_intervals(alignment_df)
-
+    print(gold_fragments[0])
     trees = build_speaker_trees(gold_fragments)
 
-    discovered_transcriptions = transcribe(discovered_fragments, trees, args.silences)
+    discovered_transcriptions = transcribe(discovered_fragments, trees)
     print(f"Example transcription: {discovered_transcriptions[0]}")
     print(
         f"Correct number of tokens (non-silence fragments): {'YES' if len(discovered_transcriptions) == total_non_silence else 'NO'} [{total_non_silence}|{len(discovered_transcriptions)}]"

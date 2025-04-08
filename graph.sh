@@ -13,35 +13,19 @@ THRESHOLD=0.4
 RESOLUTION=0.5
 
 for n in "${N_CLUSTERS[@]}"; do
-    # echo "🔍 Extracting features from training data for k-means clustering..."
-    # python extract_features.py "$KMEANS_DATA_DIR" "$AUDIO_EXT" "$MODEL" "$LAYER"
-
-    # echo "📊 Running k-means clustering on extracted features..."
-    # python kmeans.py "$KMEANS_DATA_DIR" "$MODEL" "$LAYER" "$n"
-
-    # echo "🔍 Extracting features from development data for encoding..."
-    # python extract_features.py "$DATA_DIR" "$AUDIO_EXT" "$MODEL" "$LAYER"
-
-    # echo "🎯 Encoding development data using learned clusters..."
-    # python encode_features.py "$DATA_DIR" "$ALIGN_DIR" "$MODEL" "$LAYER" "$GAMMA" "$n"
-
-    # echo "🔁 Calculating SameDiff score..."
-    # python samediff.py "features/$MODEL/layer$LAYER/gamma$GAMMA/k$n" "$ALIGN_DIR"
-
-    echo "📏 Calculating distances between segments..."
-    python distance.py "$MODEL" "$LAYER" "$GAMMA" "$n"
-
-    # echo "🔗 Creating graph from distances..."
-    # python graph.py "$MODEL" "$LAYER" "$GAMMA" "$n" "$ALIGN_DIR" "$THRESHOLD" 
-
-    # echo "🧩 Performing clustering..."
-    # python cluster.py "$MODEL" "$LAYER" "$GAMMA" "$n" "features" "$THRESHOLD" "$RESOLUTION"
-
-    # echo "📊 Evaluating clustering results..."
-    # python evaluate.py "$MODEL" "$LAYER" "$GAMMA" "$n" "graphs" "$THRESHOLD" 
 
 
-    # echo "✅ Completed iteration with N_CLUSTERS = $n!"
+    echo "🔗 Creating graph from distances..."
+    python graph.py "$MODEL" "$LAYER" "$GAMMA" "$n" "$ALIGN_DIR" "$THRESHOLD" 
+
+    echo "🧩 Performing clustering..."
+    python cluster.py "$MODEL" "$LAYER" "$GAMMA" "$n" "features" "$THRESHOLD" "$RESOLUTION"
+
+    echo "📊 Evaluating clustering results..."
+    python evaluate.py "$MODEL" "$LAYER" "$GAMMA" "$n" "graphs" "$THRESHOLD" 
+
+
+    echo "✅ Completed iteration with N_CLUSTERS = $n!"
 
     echo "🔄 Committing changes to Git..."
     git add .

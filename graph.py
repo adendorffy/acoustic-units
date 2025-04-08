@@ -141,7 +141,11 @@ if __name__ == "__main__":
     )
     align_df = pd.read_csv(args.align_dir / "alignments.csv")
     output_dir = (
-        Path("graphs") / args.model / f"layer{args.layer}" / f"gamma{args.gamma}"
+        Path("graphs")
+        / args.model
+        / f"layer{args.layer}"
+        / f"gamma{args.gamma}"
+        / f"k{args.n_clusters}"
     )
     output_dir.mkdir(exist_ok=True, parents=True)
 

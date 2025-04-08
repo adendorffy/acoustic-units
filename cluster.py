@@ -105,7 +105,7 @@ def write_to_list(ind_df, node_to_cluster, partition_file, align_df):
         except (KeyError, IndexError):
             continue
 
-        class_to_fragments[cluster_id].append((filename, word_start, word_end))
+        class_to_fragments[cluster_id].append((base_filename, word_start, word_end))
 
     # Write output
     with open(partition_file, "w") as f:
@@ -129,12 +129,19 @@ def cluster(
     initial_res: float = 0.02,
     num_clusters: int = DEV_CLEAN_CLUSTERS,
 ):
-    output_dir = Path("partitions") / model / f"layer{layer}" / f"gamma{gamma}"
+    output_dir = (
+        Path("partitions")
+        / model
+        / f"layer{layer}"
+        / f"gamma{gamma}"
+        / f"k{n_clusters}"
+    )
     graph_path = (
         Path("graphs")
         / model
         / f"layer{layer}"
         / f"gamma{gamma}"
+        / f"k{n_clusters}"
         / f"graph_t{threshold}.pkl"
     )
     ind_df = pd.read_csv(
@@ -160,6 +167,7 @@ def cluster(
         print(f"Partition already exists in {partiton_file}. Skipping clustering.")
 
         return
+    partiton_file.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"Starting clustering with initial resolution: {initial_res:.6f}", flush=True)
     _, best_partition = adaptive_res_search(

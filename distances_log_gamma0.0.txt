@@ -17,3 +17,11 @@ Calculating pairwise distances...
 🟢 Progress: 55% (239/434 files)
 🟢 Progress: 60% (261/434 files)
 🟢 Progress: 65% (283/434 files)
+🟢 Progress: 70% (304/434 files)
+🟢 Progress: 75% (326/434 files)
+🟢 Progress: 80% (348/434 files)
+🟢 Progress: 85% (369/434 files)
+🟢 Progress: 90% (391/434 files)
+🟢 Progress: 95% (413/434 files)
+All batches processed. Results saved in distances/wavlm_base/layer7/gamma0.0/k50
+🔄 Committing changes to Git...
