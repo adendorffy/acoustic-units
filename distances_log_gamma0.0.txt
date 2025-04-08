@@ -25,3 +25,32 @@ Calculating pairwise distances...
 🟢 Progress: 95% (413/434 files)
 All batches processed. Results saved in distances/wavlm_base/layer7/gamma0.0/k50
 🔄 Committing changes to Git...
+[main 2d06ace] Completed iteration with N_CLUSTERS = 50 and GAMMA = 0.0
+ 12 files changed, 407426 insertions(+), 32 deletions(-)
+ create mode 100644 clusters/wavlm_base/layer7/gamma0.0/k200/wavlm_base_l7_g0.0_t0.5_ned.txt
+ create mode 100644 clusters/wavlm_base/layer7/gamma0.0/k200/wavlm_base_l7_g0.0_t0.5_wp.txt
+ create mode 100644 distances.sh
+ create mode 100644 graphs/wavlm_base/layer7/gamma0.0/k200/graph_t0.3.pkl
+ create mode 100644 graphs/wavlm_base/layer7/gamma0.0/k200/graph_t0.5.pkl
+ create mode 100644 partitions/wavlm_base/layer7/gamma0.0/k200/wavlm_base_l7_g0.0_t0.3.txt
+ create mode 100644 partitions/wavlm_base/layer7/gamma0.0/k200/wavlm_base_l7_g0.0_t0.5.txt
+remote: warning: See https://gh.io/lfs for more information.        
+remote: warning: File graphs/wavlm_base/layer7/gamma0.0/k200/graph_t0.5.pkl is 68.47 MB; this is larger than GitHub's recommended maximum file size of 50.00 MB        
+remote: warning: GH001: Large files detected. You may want to try Git Large File Storage - https://git-lfs.github.com.        
+To github.com:adendorffy/acoustic-units.git
+   0070670..2d06ace  main -> main
+📏 Calculating distances between segments...
+distance.y [wavlm_base 7 0.0 100]
+Loading 65840 Features.. from features/wavlm_base/layer7/gamma0.0/k100
+Pairs: 2167419880, Batches: 434
+Calculating pairwise distances...
+🟢 Progress: 0% (0/434 files)
+🟢 Progress: 5% (22/434 files)
+🟢 Progress: 10% (44/434 files)
+🟢 Progress: 15% (66/434 files)
+🟢 Progress: 20% (87/434 files)
+🟢 Progress: 25% (109/434 files)
+🟢 Progress: 30% (131/434 files)
+🟢 Progress: 35% (152/434 files)
+🟢 Progress: 40% (174/434 files)
+🟢 Progress: 45% (196/434 files)

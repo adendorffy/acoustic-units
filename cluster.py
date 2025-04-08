@@ -170,7 +170,7 @@ def cluster(
     partiton_file.parent.mkdir(parents=True, exist_ok=True)
 
     print(f"Starting clustering with initial resolution: {initial_res:.6f}", flush=True)
-    _, best_partition = adaptive_res_search(
+    best_res, best_partition = adaptive_res_search(
         g,
         num_clusters,
         initial_res=initial_res,
@@ -181,7 +181,9 @@ def cluster(
         min_alpha=1e-5,
         alpha_boost=1.1,
     )
-
+    if best_res == 0:
+        print("Best resolution is 0. Exiting.")
+        return
     node_to_cluster = dict(
         zip(range(len(best_partition.membership)), best_partition.membership)
     )
