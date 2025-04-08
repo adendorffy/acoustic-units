@@ -111,9 +111,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "n_clusters", type=int, default=100, help="Number of clusters for KMeans"
     )
-    parser.add_argument(
-        "out_dir", type=Path, help="Directory for output and distances."
-    )
+
     parser.add_argument(
         "align_dir",
         type=Path,
@@ -125,19 +123,20 @@ if __name__ == "__main__":
     args = parser.parse_args()
 
     dist_dir = (
-        args.out_dir
+        Path("distances")
         / args.model
         / f"layer{args.layer}"
         / f"gamma{args.gamma}"
         / f"k{args.n_clusters}"
-        / "distances"
     )
     path_df = pd.read_csv(
         f"features/{args.model}/layer{args.layer}/gamma{args.gamma}/k{args.n_clusters}/paths.csv",
         header=None,
     )
     align_df = pd.read_csv(args.align_dir / "alignments.csv")
-    output_dir = args.out_dir / args.model / f"layer{args.layer}" / f"gamma{args.gamma}"
+    output_dir = (
+        Path("graphs") / args.model / f"layer{args.layer}" / f"gamma{args.gamma}"
+    )
     output_dir.mkdir(exist_ok=True, parents=True)
 
     graph_path = output_dir / f"graph_t{args.threshold}.pkl"

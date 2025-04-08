@@ -23,9 +23,11 @@ for n in "${N_CLUSTERS[@]}"; do
     python encode_features.py "$DATA_DIR" "$ALIGN_DIR" "$MODEL" "$LAYER" "$GAMMA" "$n"
 
     echo "Calculating samediff..."
-    python samediff.py "features/$MODEL/layer$LAYER/gamma$GAMMA/k$n" "samediff_output/" "$ALIGN_DIR" 
+    python samediff.py "features/$MODEL/layer$LAYER/gamma$GAMMA/k$n" "$ALIGN_DIR" 
 
     echo "✅ Completed iteration with N_CLUSTERS = $n!"
+
+    echo "🔄 Committing changes to Git..."
 
     git add .
     git commit -m "Completed iteration with N_CLUSTERS = $n and GAMMA = $GAMMA"

@@ -239,12 +239,6 @@ if __name__ == "__main__":
         help="Input file path for the features",
     )
     parser.add_argument(
-        "out_dir",
-        type=Path,
-        default="librispeech/dev-clean/",
-        help="Output file path for the labeled dataset",
-    )
-    parser.add_argument(
         "align_dir",
         type=Path,
         default="librispeech/dev-clean/",
@@ -257,7 +251,7 @@ if __name__ == "__main__":
     )
     align_df["text"] = align_df["text"].str.lower()
 
-    if Path(args.out_dir / "same_diff_pairs_labeled.csv").exists():
+    if Path("samediff" / "same_diff_pairs_labeled.csv").exists():
         print(
             f"Labeled pairs file {args.out_dir / 'same_diff_pairs_labeled.csv'} already exists"
         )

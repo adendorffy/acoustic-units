@@ -47,7 +47,6 @@ def calculate_dist_files(
     gamma: float,
     n_clusters: int,
     feat_dir: Path,
-    output_dir: Path,
     chunk_limit: int = 5_000_000,
 ):
     feature_dir = feat_dir / model / f"layer{layer}" / f"gamma{gamma}/k{n_clusters}"
@@ -71,12 +70,7 @@ def calculate_dist_files(
         flush=True,
     )
     out_dir = (
-        output_dir
-        / model
-        / f"layer{layer}"
-        / f"gamma{gamma}"
-        / f"k{n_clusters}"
-        / "distances"
+        Path("distances") / model / f"layer{layer}" / f"gamma{gamma}" / f"k{n_clusters}"
     )
     out_dir.mkdir(parents=True, exist_ok=True)
 
@@ -154,5 +148,4 @@ if __name__ == "__main__":
         args.gamma,
         args.n_clusters,
         Path("features"),
-        Path("output"),
     )

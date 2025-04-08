@@ -81,52 +81,7 @@ def adaptive_res_search(
     return best_res, best_partition
 
 
-def cluster(
-    model: str,
-    layer: int,
-    gamma: float,
-    out_dir: Path,
-    features_dir: Path,
-    threshold: float = 0.4,
-    initial_res: float = 0.02,
-    num_clusters: int = DEV_CLEAN_CLUSTERS,
-):
-    output_dir = out_dir / model / f"layer{layer}" / f"gamma{gamma}"
-    graph_path = output_dir / f"graph_t{threshold}.pkl"
-
-    if not graph_path.exists():
-        print(f"{graph_path} does not exist. Please run the graph building step first.")
-        return
-
-    with open(graph_path, "rb") as f:
-        g = pickle.load(f)
-    print(f"Loaded graph from {graph_path}")
-
-    partition_dir = output_dir / f"partition_t{threshold}"
-    partiton_file = partition_dir / f"{model}_l{layer}_g{gamma}_t{threshold}.txt"
-    if partition_dir.exists() and partiton_file.exists():
-        print(
-            f"Partition already exists in {partition_dir} with output file {partiton_file}. Skipping clustering."
-        )
-        return
-
-    partition_dir.mkdir(parents=True, exist_ok=True)
-    print(f"Starting clustering with initial resolution: {initial_res:.6f}", flush=True)
-    _, best_partition = adaptive_res_search(
-        g,
-        num_clusters,
-        initial_res=initial_res,
-        alpha=0.01,
-        max_iters=50,
-        tol=1e-6,
-        patience=3,
-        min_alpha=1e-5,
-        alpha_boost=1.1,
-    )
-    ind_df = pd.read_csv(features_dir / "paths.csv")
-    node_to_cluster = dict(
-        zip(range(len(best_partition.membership)), best_partition.membership)
-    )
+def write_to_list(ind_df, node_to_cluster, partition_dir, partiton_file):
     print("Converting output to .list format...", flush=True)
 
     class_to_fragments = defaultdict(list)
@@ -156,6 +111,62 @@ def cluster(
     print(f"✅ Combined output written to: {output_file}")
 
 
+def cluster(
+    model: str,
+    layer: int,
+    gamma: float,
+    features_dir: Path,
+    threshold: float = 0.4,
+    initial_res: float = 0.02,
+    num_clusters: int = DEV_CLEAN_CLUSTERS,
+):
+    output_dir = Path("graphs") / model / f"layer{layer}" / f"gamma{gamma}"
+    graph_path = output_dir / f"graph_t{threshold}.pkl"
+    ind_df = pd.read_csv(features_dir / "paths.csv")
+
+    if not graph_path.exists():
+        print(f"{graph_path} does not exist. Please run the graph building step first.")
+        return
+
+    with open(graph_path, "rb") as f:
+        g = pickle.load(f)
+    print(f"Loaded graph from {graph_path}")
+
+    partition_dir = output_dir / f"partition_t{threshold}"
+    partiton_file = partition_dir / f"{model}_l{layer}_g{gamma}_t{threshold}.txt"
+    if partition_dir.exists() and partiton_file.exists():
+        print(
+            f"Partition already exists in {partition_dir} with output file {partiton_file}. Skipping clustering."
+        )
+
+        # node_to_cluster = dict(
+        #     zip(range(len(best_partition.membership)), best_partition.membership)
+        # )
+
+        # write_to_list(ind_df, node_to_cluster, partition_dir, partiton_file)
+        return
+
+    partition_dir.mkdir(parents=True, exist_ok=True)
+    print(f"Starting clustering with initial resolution: {initial_res:.6f}", flush=True)
+    _, best_partition = adaptive_res_search(
+        g,
+        num_clusters,
+        initial_res=initial_res,
+        alpha=0.01,
+        max_iters=50,
+        tol=1e-6,
+        patience=3,
+        min_alpha=1e-5,
+        alpha_boost=1.1,
+    )
+
+    node_to_cluster = dict(
+        zip(range(len(best_partition.membership)), best_partition.membership)
+    )
+
+    write_to_list(ind_df, node_to_cluster, partition_dir, partiton_file)
+
+
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(
         description="Cluster graph using Leiden algorithm."
@@ -163,9 +174,7 @@ if __name__ == "__main__":
     parser.add_argument("model", type=str, help="Model name for processing.")
     parser.add_argument("layer", type=int, help="Layer number for processing.")
     parser.add_argument("gamma", type=float, help="Gamma value for processing.")
-    parser.add_argument(
-        "out_dir", type=Path, help="Directory for output and distances."
-    )
+
     parser.add_argument(
         "features_dir", type=Path, help="Directory for features and paths."
     )
@@ -179,7 +188,6 @@ if __name__ == "__main__":
         args.model,
         args.layer,
         args.gamma,
-        args.out_dir,
         args.features_dir,
         args.threshold,
         initial_res=args.resolution,
