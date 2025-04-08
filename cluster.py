@@ -115,6 +115,7 @@ def cluster(
     model: str,
     layer: int,
     gamma: float,
+    n_clusters: int,
     features_dir: Path,
     threshold: float = 0.4,
     initial_res: float = 0.02,
@@ -122,7 +123,14 @@ def cluster(
 ):
     output_dir = Path("graphs") / model / f"layer{layer}" / f"gamma{gamma}"
     graph_path = output_dir / f"graph_t{threshold}.pkl"
-    ind_df = pd.read_csv(features_dir / "paths.csv")
+    ind_df = pd.read_csv(
+        features_dir
+        / model
+        / f"layer{layer}"
+        / f"gamma{gamma}"
+        / f"k{n_clusters}"
+        / "paths.csv"
+    )
 
     if not graph_path.exists():
         print(f"{graph_path} does not exist. Please run the graph building step first.")
@@ -174,6 +182,7 @@ if __name__ == "__main__":
     parser.add_argument("model", type=str, help="Model name for processing.")
     parser.add_argument("layer", type=int, help="Layer number for processing.")
     parser.add_argument("gamma", type=float, help="Gamma value for processing.")
+    parser.add_argument("n_clusters", type=int, help="Number of clusters for KMeans.")
 
     parser.add_argument(
         "features_dir", type=Path, help="Directory for features and paths."
@@ -188,6 +197,7 @@ if __name__ == "__main__":
         args.model,
         args.layer,
         args.gamma,
+        args.n_clusters,
         args.features_dir,
         args.threshold,
         initial_res=args.resolution,

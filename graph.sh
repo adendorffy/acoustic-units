@@ -32,7 +32,7 @@ for n in "${N_CLUSTERS[@]}"; do
     python graph.py "$MODEL" "$LAYER" "$GAMMA" "$n"
 
     echo "🧩 Performing clustering..."
-    python cluster.py "$MODEL" "$LAYER" "$GAMMA" "features" "$THRESHOLD" "$RESOLUTION"
+    python cluster.py "$MODEL" "$LAYER" "$GAMMA" "$n" "features" "$THRESHOLD" "$RESOLUTION"
 
     echo "📊 Evaluating clustering results..."
     python evaluate.py "$MODEL" "$LAYER" "$GAMMA" "$n" "features" "$THRESHOLD" "$RESOLUTION"
