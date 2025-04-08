@@ -38,7 +38,7 @@ for n in "${N_CLUSTERS[@]}"; do
     # python cluster.py "$MODEL" "$LAYER" "$GAMMA" "$n" "features" "$THRESHOLD" "$RESOLUTION"
 
     # echo "📊 Evaluating clustering results..."
-    # python evaluate.py "$MODEL" "$LAYER" "$GAMMA" "$n" "features" "$THRESHOLD" "$RESOLUTION"
+    # python evaluate.py "$MODEL" "$LAYER" "$GAMMA" "$n" "graphs" "$THRESHOLD" 
 
 
     # echo "✅ Completed iteration with N_CLUSTERS = $n!"

@@ -247,11 +247,6 @@ if __name__ == "__main__":
     )
 
     parser.add_argument("threshold", type=float, help="Threshold at whic to extract.")
-    parser.add_argument(
-        "results_dir",
-        help="path to the discovered fragments.",
-        type=Path,
-    )
 
     parser.add_argument(
         "align_dir",
@@ -259,15 +254,14 @@ if __name__ == "__main__":
         type=Path,
     )
 
-    parser.add_argument(
-        "--silences",
-        help="Use silences in NED calculation.",
-        action="store_true",
-    )
     args = parser.parse_args()
 
     file = (
-        args.results_dir
+        Path("partitions")
+        / args.model
+        / f"layer{args.layer}"
+        / f"gamma{args.gamma}"
+        / f"k{args.n_clusters}"
         / f"{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}.txt"
     )
 
@@ -308,28 +302,20 @@ if __name__ == "__main__":
         f"Correct number of tokens (non-silence fragments): {'YES' if len(discovered_transcriptions) == total_non_silence else 'NO'} [{total_non_silence}|{len(discovered_transcriptions)}]"
     )
 
-    out_dir = args.results_dir / "clusters"
+    out_dir = (
+        Path("clusters")
+        / args.model
+        / f"layer{args.layer}"
+        / f"gamma{args.gamma}"
+        / f"k{args.n_clusters}"
+    )
     out_dir.mkdir(parents=True, exist_ok=True)
 
-    if args.silences:
-        ned_value = ned(
-            discovered_transcriptions,
-            out_dir
-            / f"sil_{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_ned.txt",
-        )
-        word_purity_value = word_purity(
-            discovered_transcriptions,
-            out_dir
-            / f"sil{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_wp.txt",
-        )
-    else:
-        ned_value = ned(
-            discovered_transcriptions,
-            out_dir
-            / f"{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_ned.txt",
-        )
-        word_purity_value = word_purity(
-            discovered_transcriptions,
-            out_dir
-            / f"{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_wp.txt",
-        )
+    ned_value = ned(
+        discovered_transcriptions,
+        out_dir / f"{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_ned.txt",
+    )
+    word_purity_value = word_purity(
+        discovered_transcriptions,
+        out_dir / f"{args.model}_l{args.layer}_g{args.gamma}_t{args.threshold}_wp.txt",
+    )

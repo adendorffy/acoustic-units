@@ -81,34 +81,41 @@ def adaptive_res_search(
     return best_res, best_partition
 
 
-def write_to_list(ind_df, node_to_cluster, partition_dir, partiton_file):
-    print("Converting output to .list format...", flush=True)
-
+def write_to_list(ind_df, node_to_cluster, partition_file, align_df):
     class_to_fragments = defaultdict(list)
 
-    for filename, group_df in ind_df.groupby("filename"):
-        output_file = partition_dir / f"{filename}.list"
-        word_start = 0.0
-        with open(output_file, "w") as f:
-            for _, row in group_df.iterrows():
-                word_end = row["end"]
-                global_node_id = row.name
+    # Pre-index for fast lookup
+    ind_lookup = dict(zip(ind_df["filename"], ind_df["word_index"]))
+    align_df_grouped = align_df.groupby("filename")
 
-                cluster_id = node_to_cluster.get(global_node_id, -1)
-                f.write(f"{word_end:.2f} {cluster_id}\n")
+    # Fast iteration
+    for filename in ind_df["filename"].unique():
+        base_filename, word_id = filename.split("_")
+        word_id = int(word_id)
+        global_node_id = ind_lookup[filename]
+        cluster_id = node_to_cluster.get(global_node_id, -1)
+        if cluster_id == -1:
+            continue
 
-                class_to_fragments[cluster_id].append((filename, word_start, word_end))
-                word_start = word_end
-    print(f".list format output saved in {partition_dir}", flush=True)
+        try:
+            file_df = align_df_grouped.get_group(base_filename)
+            word_row = file_df[file_df["word_id"] == word_id].iloc[0]
+            word_start = float(word_row["word_start"])
+            word_end = float(word_row["word_end"])
+        except (KeyError, IndexError):
+            continue
 
-    with open(partiton_file, "w") as f:
-        for classnb in sorted(class_to_fragments.keys()):
+        class_to_fragments[cluster_id].append((filename, word_start, word_end))
+
+    # Write output
+    with open(partition_file, "w") as f:
+        for classnb in sorted(class_to_fragments):
             f.write(f"Class {classnb}\n")
             for filename, onset, offset in class_to_fragments[classnb]:
                 f.write(f"{filename} {onset:.2f} {offset:.2f}\n")
             f.write("\n")
 
-    print(f"✅ Combined output written to: {output_file}")
+    print(f"✅ Combined output written to: {partition_file}")
 
 
 def cluster(
@@ -117,12 +124,19 @@ def cluster(
     gamma: float,
     n_clusters: int,
     features_dir: Path,
+    align_dir: Path,
     threshold: float = 0.4,
     initial_res: float = 0.02,
     num_clusters: int = DEV_CLEAN_CLUSTERS,
 ):
-    output_dir = Path("graphs") / model / f"layer{layer}" / f"gamma{gamma}"
-    graph_path = output_dir / f"graph_t{threshold}.pkl"
+    output_dir = Path("partitions") / model / f"layer{layer}" / f"gamma{gamma}"
+    graph_path = (
+        Path("graphs")
+        / model
+        / f"layer{layer}"
+        / f"gamma{gamma}"
+        / f"graph_t{threshold}.pkl"
+    )
     ind_df = pd.read_csv(
         features_dir
         / model
@@ -131,6 +145,7 @@ def cluster(
         / f"k{n_clusters}"
         / "paths.csv"
     )
+    align_df = pd.read_csv(align_dir / "alignments.csv")
 
     if not graph_path.exists():
         print(f"{graph_path} does not exist. Please run the graph building step first.")
@@ -140,21 +155,12 @@ def cluster(
         g = pickle.load(f)
     print(f"Loaded graph from {graph_path}")
 
-    partition_dir = output_dir / f"partition_t{threshold}"
-    partiton_file = partition_dir / f"{model}_l{layer}_g{gamma}_t{threshold}.txt"
-    if partition_dir.exists() and partiton_file.exists():
-        print(
-            f"Partition already exists in {partition_dir} with output file {partiton_file}. Skipping clustering."
-        )
+    partiton_file = output_dir / f"{model}_l{layer}_g{gamma}_t{threshold}.txt"
+    if partiton_file.exists():
+        print(f"Partition already exists in {partiton_file}. Skipping clustering.")
 
-        # node_to_cluster = dict(
-        #     zip(range(len(best_partition.membership)), best_partition.membership)
-        # )
-
-        # write_to_list(ind_df, node_to_cluster, partition_dir, partiton_file)
         return
 
-    partition_dir.mkdir(parents=True, exist_ok=True)
     print(f"Starting clustering with initial resolution: {initial_res:.6f}", flush=True)
     _, best_partition = adaptive_res_search(
         g,
@@ -172,7 +178,7 @@ def cluster(
         zip(range(len(best_partition.membership)), best_partition.membership)
     )
 
-    write_to_list(ind_df, node_to_cluster, partition_dir, partiton_file)
+    write_to_list(ind_df, node_to_cluster, partiton_file, align_df)
 
 
 if __name__ == "__main__":
@@ -187,6 +193,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "features_dir", type=Path, help="Directory for features and paths."
     )
+    parser.add_argument("align_dir", type=Path, help="Directory for alignments.")
     parser.add_argument(
         "threshold", type=float, default=0.4, help="Distance threshold."
     )
@@ -199,6 +206,7 @@ if __name__ == "__main__":
         args.gamma,
         args.n_clusters,
         args.features_dir,
+        args.align_dir,
         args.threshold,
         initial_res=args.resolution,
         num_clusters=DEV_CLEAN_CLUSTERS,

@@ -5,10 +5,10 @@ import numpy as np
 import igraph as ig
 import pandas as pd
 import re
-from typing import Iterable
+from typing import Iterable, Tuple
 
 
-def get_total_size(dist_dir: Path) -> int:
+def get_total_size(dist_dir: Path) -> Tuple[int, int]:
     total_chunks = sum(1 for _ in dist_dir.rglob("vals_*.npy"))
     print(f"Get total_size for {dist_dir} [total_chunks: {total_chunks}]")
     total_size = sum(
@@ -65,18 +65,31 @@ def build_graph_from_chunks(
     prev_progress = -1
 
     for i in range(total_chunks):
-        rows = np.load(dist_dir / f"rows_{i}.npy")
-        cols = np.load(dist_dir / f"cols_{i}.npy")
-        vals = np.load(dist_dir / f"vals_{i}.npy")
+        rows = np.load(dist_dir / f"rows_{i}.npy", mmap_mode="r")
+        cols = np.load(dist_dir / f"cols_{i}.npy", mmap_mode="r")
+        vals = np.load(dist_dir / f"vals_{i}.npy", mmap_mode="r")
 
         threshold_mask = vals < threshold
-        r_filtered = rows[threshold_mask]
-        c_filtered = cols[threshold_mask]
-        w_filtered = vals[threshold_mask]
+        rows_filtered = rows[threshold_mask]
+        cols_filtered = cols[threshold_mask]
+        vals_filtered = vals[threshold_mask]
 
-        for r, c, w in zip(r_filtered, c_filtered, w_filtered):
-            if r in id_to_label and c in id_to_label:
-                g.add_edge(id_to_label[r], id_to_label[c], weight=max(w, 1e-10))
+        valid_ids = set(id_to_label.keys())
+        valid_edge_mask = np.isin(rows_filtered, list(valid_ids)) & np.isin(
+            cols_filtered, list(valid_ids)
+        )
+
+        r_final = rows_filtered[valid_edge_mask]
+        c_final = cols_filtered[valid_edge_mask]
+        v_final = vals_filtered[valid_edge_mask]
+
+        if len(r_final) > 0:
+            g.add_edges(
+                [(id_to_label[r], id_to_label[c]) for r, c in zip(r_final, c_final)]
+            )
+            g.es[-len(v_final) :].set_attribute_values(
+                "weight", [max(w, 1e-10) for w in v_final]
+            )
 
         progress = int((i / total_chunks) * 100)
         if progress % 5 == 0 and progress > prev_progress:
