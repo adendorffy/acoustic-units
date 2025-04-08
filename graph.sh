@@ -10,7 +10,7 @@ ALIGN_DIR="librispeech/alignments/dev-clean"
 N_CLUSTERS=(200)
 GAMMA=0.0
 THRESHOLD=0.4
-RESOLUTION=1.0
+RESOLUTION=0.5
 
 for n in "${N_CLUSTERS[@]}"; do
     # echo "🔍 Extracting features from training data for k-means clustering..."
@@ -25,11 +25,14 @@ for n in "${N_CLUSTERS[@]}"; do
     # echo "🎯 Encoding development data using learned clusters..."
     # python encode_features.py "$DATA_DIR" "$ALIGN_DIR" "$MODEL" "$LAYER" "$GAMMA" "$n"
 
+    # echo "🔁 Calculating SameDiff score..."
+    # python samediff.py "features/$MODEL/layer$LAYER/gamma$GAMMA/k$n" "$ALIGN_DIR"
+
     # echo "📏 Calculating distances between segments..."
     # python distance.py "$MODEL" "$LAYER" "$GAMMA" "$n"
 
     echo "🔗 Creating graph from distances..."
-    python graph.py "$MODEL" "$LAYER" "$GAMMA" "$n" "$ALIGN_DIR" "$THRESHOLD" "$RESOLUTION"
+    python graph.py "$MODEL" "$LAYER" "$GAMMA" "$n" "$ALIGN_DIR" "$THRESHOLD" 
 
     echo "🧩 Performing clustering..."
     python cluster.py "$MODEL" "$LAYER" "$GAMMA" "$n" "features" "$THRESHOLD" "$RESOLUTION"
@@ -37,8 +40,6 @@ for n in "${N_CLUSTERS[@]}"; do
     echo "📊 Evaluating clustering results..."
     python evaluate.py "$MODEL" "$LAYER" "$GAMMA" "$n" "features" "$THRESHOLD" "$RESOLUTION"
 
-    echo "🔁 Calculating SameDiff score..."
-    python samediff.py "features/$MODEL/layer$LAYER/gamma$GAMMA/k$n" "$ALIGN_DIR"
 
     echo "✅ Completed iteration with N_CLUSTERS = $n!"
 

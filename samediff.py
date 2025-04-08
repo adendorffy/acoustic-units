@@ -251,7 +251,7 @@ if __name__ == "__main__":
     )
     align_df["text"] = align_df["text"].str.lower()
 
-    if Path("samediff" / "same_diff_pairs_labeled.csv").exists():
+    if Path("samediff/same_diff_pairs_labeled.csv").exists():
         print(
             f"Labeled pairs file {args.out_dir / 'same_diff_pairs_labeled.csv'} already exists"
         )
